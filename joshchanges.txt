@@ -1,0 +1,7 @@
+23/07/2026
+requirements.txt
+
+created runexample.py based on jupyter notebook
+- outputs match example.ipynhb
+- creates model.pnml
+
