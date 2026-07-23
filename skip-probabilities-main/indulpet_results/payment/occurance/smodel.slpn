@@ -1,0 +1,318 @@
+stochastic labelled Petri net
+# number of places
+20
+# initial marking
+0
+0
+1
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+# number of transitions
+29
+# transition 0
+label TAU_000
+# weight
+1
+# number of input places
+1
+10
+# number of output places
+1
+6
+# transition 1
+silent
+# weight
+1
+# number of input places
+1
+10
+# number of output places
+1
+5
+# transition 2
+label ACTIVITY_0011
+# weight
+1085/6886
+# number of input places
+1
+13
+# number of output places
+1
+5
+# transition 3
+silent
+# weight
+1
+# number of input places
+1
+19
+# number of output places
+2
+0
+12
+# transition 4
+silent
+# weight
+1
+# number of input places
+1
+2
+# number of output places
+1
+10
+# transition 5
+silent
+# weight
+1
+# number of input places
+1
+5
+# number of output places
+1
+16
+# transition 6
+label ACTIVITY_0010010
+# weight
+499/626
+# number of input places
+1
+9
+# number of output places
+1
+13
+# transition 7
+silent
+# weight
+1
+# number of input places
+1
+13
+# number of output places
+1
+6
+# transition 8
+label ACTIVITY_0211
+# weight
+41/6886
+# number of input places
+1
+12
+# number of output places
+1
+17
+# transition 9
+label ACTIVITY_01
+# weight
+6343/6886
+# number of input places
+1
+6
+# number of output places
+1
+19
+# transition 10
+label ACTIVITY_001011
+# weight
+1007/3443
+# number of input places
+1
+18
+# number of output places
+1
+13
+# transition 11
+label ACTIVITY_001000
+# weight
+3752/3443
+# number of input places
+1
+5
+# number of output places
+1
+9
+# transition 12
+label ACTIVITY_061
+# weight
+37/3443
+# number of input places
+1
+1
+# number of output places
+1
+7
+# transition 13
+label ACTIVITY_00102
+# weight
+3752/3443
+# number of input places
+1
+5
+# number of output places
+1
+13
+# transition 14
+label TAU_020
+# weight
+1
+# number of input places
+1
+19
+# number of output places
+1
+4
+# transition 15
+label ACTIVITY_0210
+# weight
+41/6886
+# number of input places
+1
+0
+# number of output places
+1
+11
+# transition 16
+label TAU_060
+# weight
+1
+# number of input places
+1
+1
+# number of output places
+1
+7
+# transition 17
+label ACTIVITY_05
+# weight
+6307/6886
+# number of input places
+1
+3
+# number of output places
+1
+1
+# transition 18
+label ACTIVITY_03
+# weight
+573/626
+# number of input places
+1
+4
+# number of output places
+1
+15
+# transition 19
+label ACTIVITY_041
+# weight
+1/6886
+# number of input places
+1
+15
+# number of output places
+1
+3
+# transition 20
+silent
+# weight
+1
+# number of input places
+2
+17
+11
+# number of output places
+1
+4
+# transition 21
+label ACTIVITY_062
+# weight
+1/6886
+# number of input places
+1
+1
+# number of output places
+1
+7
+# transition 22
+label ACTIVITY_00101001
+# weight
+499/626
+# number of input places
+1
+8
+# number of output places
+1
+18
+# transition 23
+label ACTIVITY_001010001
+# weight
+38/313
+# number of input places
+1
+8
+# number of output places
+1
+14
+# transition 24
+label ACTIVITY_0010101
+# weight
+179/6886
+# number of input places
+1
+18
+# number of output places
+1
+16
+# transition 25
+label TAU_040
+# weight
+1
+# number of input places
+1
+15
+# number of output places
+1
+3
+# transition 26
+label ACTIVITY_0010011
+# weight
+38/313
+# number of input places
+1
+9
+# number of output places
+1
+13
+# transition 27
+silent
+# weight
+1
+# number of input places
+1
+16
+# number of output places
+1
+14
+# transition 28
+label ACTIVITY_001010000
+# weight
+3752/3443
+# number of input places
+1
+14
+# number of output places
+1
+8
