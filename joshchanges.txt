@@ -5,3 +5,30 @@ created runexample.py based on jupyter notebook
 - outputs match example.ipynhb
 - creates model.pnml
 
+27-29/07/2025
+Aim: Restructure the project so it can be installed and imported like a
+library
+
+- Restructured project into a standard src-based package layout
+
+- Added main.py at the project root demonstrating the package used as
+  a library (imports from skipprobabilities and calls run_pipeline())
+
+- Added src/skipprobabilities/__init__.py
+
+- Added pyproject.toml (setuptools backend, src layout) so the package
+  can be installed via `pip install -e .`
+
+- Refactor run_example.py into build_example_tree() and
+  run_pipeline(output_dir=...) so the example can be invoked
+  programmatically instead of only via `python run_example.py`
+
+- Add tests/test_run_example.py (pytest) covering:
+  - example tree construction and leaf labels
+  - end-to-end pipeline execution via run_pipeline()
+  - skip_probs coverage over every tree node and valid [0,1] range
+  - pickled output artifacts (tree, skip_dict, trace_probs,
+    trace_counts, skip_probs) written and loadable from disk
+  - stats() and print_blinded() reporting methods
+
+- 15 Tests Passed using src/skipprobabilities/run_example
