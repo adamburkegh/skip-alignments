@@ -7,8 +7,7 @@ aligns it against an example event log and derives skip probabilities.
 """
 import pandas as pd
 
-from processtree import Activity, Sequence, Xor, Loop
-from derivation import DerivationPipeline
+from skipprobabilities import *
 
 #Build the process tree 
 a = Activity(None, 'a', 100000); a.id = "4"
