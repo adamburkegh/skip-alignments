@@ -16,8 +16,8 @@ import shutil
 
 import pytest
 
-from skipprobabilities import run_pipeline, build_example_tree, DerivationPipeline
-from skipprobabilities import Activity, Sequence, Xor, Loop, ProcessTree, LeafNode
+from src.skipprobabilities import run_pipeline, build_example_tree, DerivationPipeline
+from src.skipprobabilities import Activity, Sequence, Xor, Loop, ProcessTree, LeafNode
 
 
 OUTPUT_DIR = "./test_example_out"

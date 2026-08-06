@@ -10,11 +10,9 @@ if _pkg_dir not in sys.path:
 from derivation import DerivationPipeline, EbiWeights
 from processtree import ProcessTree, LeafNode, Activity, Tau, Sequence, Xor, And, Loop
 from alignment import Aligner, State, Mapper
-from run_example import run_pipeline, build_example_tree
 
 __all__ = [
     "DerivationPipeline", "EbiWeights",
     "ProcessTree", "LeafNode", "Activity", "Tau", "Sequence", "Xor", "And", "Loop",
     "Aligner", "State", "Mapper",
-    "run_pipeline", "build_example_tree",
 ]
