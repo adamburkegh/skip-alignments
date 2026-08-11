@@ -8,7 +8,7 @@ After installing the package, the skip probability functionality can be
 imported directly with `from skipprobabilities import *`, 
 
 ## Requirements
-- Python ≥ 3.10
+- `Python ≥ 3.10`
 - `pm4py`
 - `pandas`
 - `tqdm`
