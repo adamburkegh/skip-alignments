@@ -2,6 +2,29 @@
 In process mining, alignments are a core concept to synchronize actual process executions with a process model.
 This repository contains the code to compute _skip probabilities_ for a given log and process tree. We provide all source code and references to replicate the results of skip probabilities from the paper "Skip Probabilities for Subprocesses".
 
+## Library Usage
+The project can also be installed and used as a Python library. 
+After installing the package, the skip probability functionality can be
+imported directly with `from skipprobabilities import *`, 
+
+## Requirements
+- Python ≥ 3.10
+- `pm4py`
+- `pandas`
+- `tqdm`
+- `Ebi`
+
+## Installation
+The project is packaged with `setuptools` (see `pyproject.toml`), with the
+package source living under `src/skipprobabilities`.
+
+```bash
+pip install -e .
+```
+
+This installs the `skipprobabilities` package and its dependencies
+(`pandas`, `pm4py`, `tqdm`).
+
 ## Structure of This Repository
 This repository contains everything needed to compute skip alignments and to recreate the evaluation from the paper.
 
@@ -23,7 +46,7 @@ You need to download the event logs used in this repository to recreate the eval
 We provide the computational results used in our evaluation in the folders `im_results`, `indulpet_results`, and `rand_results`. They are equivalent to the files obtained by running the three notebooks again.
 
 ## Ebi
-Querying the stochastic path languages in the derivation process requires Ebi. Follow the instructions of [Ebi](https://ebitools.org/) to setup the environment. For skip probabilities, we expect `ebi.exe` to be located in _this_ folder.
+Querying the stochastic path languages in the derivation process requires Ebi. Follow the instructions of [Ebi](https://ebitools.org/) to setup the environment. For skip probabilities, we expect `ebi.exe` to be located in _./src/skipprobabilities_ folder.
 
 ## Third Party Dependencies
 As scientific library in the Python ecosystem, we rely on external libraries to offer our features. We refer to [this](https://github.com/process-intelligence-solutions/pm4py/tree/release/third_party) page for a detailed list of licenses of the dependencies used in this project. We specifically modified the PM4py library to perform our computations and refer to the PM4py [license](https://github.com/process-intelligence-solutions/pm4py/blob/release/LICENSE) for details.

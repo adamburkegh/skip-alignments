@@ -1,0 +1,99 @@
+
+CHANGE LOG
+
+23/07/2026
+requirements.txt
+
+created runexample.py based on jupyter notebook
+- outputs match example.ipynhb
+- creates model.pnml
+
+27-29/07/2026
+Aim: Restructure the project so it can be installed and imported like a
+library
+
+- Restructured project into a standard src-based package layout
+
+- Added main.py at the project root demonstrating the package used as
+  a library (imports from skipprobabilities and calls run_pipeline())
+
+- Added src/skipprobabilities/__init__.py
+
+- Added pyproject.toml (setuptools backend, src layout) so the package
+  can be installed via `pip install -e .`
+
+- Refactor run_example.py into build_example_tree() and
+  run_pipeline(output_dir=...) so the example can be invoked
+  programmatically instead of only via `python run_example.py`
+
+- Add tests/test_run_example.py (pytest) covering:
+  - example tree construction and leaf labels
+  - end-to-end pipeline execution via run_pipeline()
+  - skip_probs coverage over every tree node and valid [0,1] range
+  - pickled output artifacts (tree, skip_dict, trace_probs,
+    trace_counts, skip_probs) written and loadable from disk
+  - stats() and print_blinded() reporting methods
+
+- 15 Tests Passed using src/skipprobabilities/run_example
+
+
+03/08/2026
+- Replaced assertion-based tests with user-defined test cases.
+
+    - Allows tests to better represent expected user behaviour.
+    - Improves flexibility when validating library outputs.
+
+05/08/2026
+Aim: Restructure and organise project files into a cleaner package layout
+
+Project Structure
+- Began filtering existing files and moving components into appropriate
+  directories.
+
+    - Separated example files, results, and package-related files.
+    - Reviewed existing folder structure to improve maintainability.
+
+Package Imports
+- Investigated issues related to `__init__.py` imports being called from
+  `run_example.py`.
+
+    - Identified that outputs were relying on hard-coded values due to
+      incorrect project structure.
+    - Confirmed that the issue was not caused by `__init__.py` itself.
+
+06/08/2026
+
+Package Structure
+- Resolved `run_example.py` import and output issues.
+
+    - Removed unnecessary hard-coded values.
+    - Updated implementation to correctly use package imports.
+    - Verified the fix after restructuring.
+
+Logs
+- Investigated `logs.py` and the `Logs` enumeration implementation.
+
+    - Reviewed whether log definitions were hard-coded.
+    - Considered whether the enumeration could be modified or removed to
+      improve package flexibility.
+
+Examples and Testing
+- Organised project outputs and examples.
+    - Moved Jupyter notebooks into the examples directory.
+    - Moved generated outputs into the results directory.
+
+- Installed Jupyter dependencies and configured `test_im_models`.
+    - Verified notebooks can be executed within the new package structure.
+
+Library Usage
+
+- Updated Jupyter notebooks to use the `skipprobabilities` package.
+    - Replaced direct imports from the original Philips implementation.
+    - Updated notebooks to use:
+        `from skipprobabilities import *`
+
+- Tested the package against Philips' original Jupyter notebook examples.
+    - Replaced the original implementation imports with the new library import.
+    - Confirmed outputs match expected behaviour.
+    - Verified the library functions correctly when used as a drop-in
+      replacement.
