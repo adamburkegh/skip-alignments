@@ -1,4 +1,4 @@
-# src/skipprobabilities/__init__.py
+# src/skipalignments/__init__.py
 import os
 import sys
 

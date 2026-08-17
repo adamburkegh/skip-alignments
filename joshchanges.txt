@@ -97,3 +97,10 @@ Library Usage
     - Confirmed outputs match expected behaviour.
     - Verified the library functions correctly when used as a drop-in
       replacement.
+
+END `Version 0.1.0`
+
+17/08/2026
+`version 0.1.1`
+Rename to skipalignments
+Pip List into requirements.txt after installing and running `example.ipynb`

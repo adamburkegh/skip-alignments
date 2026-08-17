@@ -5,7 +5,7 @@ This repository contains the code to compute _skip probabilities_ for a given lo
 ## Library Usage
 The project can also be installed and used as a Python library. 
 After installing the package, the skip probability functionality can be
-imported directly with `from skipprobabilities import *`, 
+imported directly with `from skipalignments import *`, 
 
 ## Requirements
 - `Python ≥ 3.10`
@@ -16,13 +16,13 @@ imported directly with `from skipprobabilities import *`,
 
 ## Installation
 The project is packaged with `setuptools` (see `pyproject.toml`), with the
-package source living under `src/skipprobabilities`.
+package source living under `src/skipalignments`.
 
 ```bash
 pip install -e .
 ```
 
-This installs the `skipprobabilities` package and its dependencies
+This installs the `skipalignments` package and its dependencies
 (`pandas`, `pm4py`, `tqdm`).
 
 ## Structure of This Repository

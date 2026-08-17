@@ -4,7 +4,7 @@ Aggregator module that exposes the full skip-probability derivation
 under a single import
 
 Usage:
-    from skipprobabilities import *
+    from skipalignments import *
 """
 import random
 import pm4py
