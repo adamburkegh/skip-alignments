@@ -2,6 +2,11 @@
 In process mining, alignments are a core concept to synchronize actual process executions with a process model.
 This repository contains the code to compute _skip probabilities_ for a given log and process tree. We provide all source code and references to replicate the results of skip probabilities from the paper "Skip Probabilities for Subprocesses".
 
+This implements the techniques from the following two papers:
+*A Full Picture in Conformance Checking: Efficiently Summarizing All Optimal Alignments. Philipp Bär, Sander J.J. Leemans, Moe T. Wynn. International Conference on Business Process Management 2025.*
+
+*Skip Probabilities for Subprocesses. Philipp Bär, Adam T. Burke, Moe T. Wynn, Sander J.J. Leemans. International Conference on Process Mining 2025.*
+
 ## Library Usage
 The project can also be installed and used as a Python library. 
 After installing the package, the skip probability functionality can be
