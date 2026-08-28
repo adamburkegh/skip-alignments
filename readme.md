@@ -4,9 +4,9 @@ This repository contains the code to compute _skip probabilities_ for a given lo
 
 This implements the techniques from the following two papers:
 
-*A Full Picture in Conformance Checking: Efficiently Summarizing All Optimal Alignments. Philipp Bär, Sander J.J. Leemans, Moe T. Wynn. International Conference on Business Process Management 2025.*
+*Philipp Bär, Sander J.J. Leemans, Moe T. Wynn (2025). A Full Picture in Conformance Checking: Efficiently Summarizing All Optimal Alignments. International Conference on Business Process Management (BPM) 2025.*
 
-*Skip Probabilities for Subprocesses. Philipp Bär, Adam T. Burke, Moe T. Wynn, Sander J.J. Leemans. International Conference on Process Mining 2025.*
+*Philipp Bär, Adam T. Burke, Moe T. Wynn, Sander J.J. Leemans (2025). Skip Probabilities for Subprocesses. International Conference on Process Mining (ICPM) 2025.*
 
 ## Library Usage
 The project can also be installed and used as a Python library. 
