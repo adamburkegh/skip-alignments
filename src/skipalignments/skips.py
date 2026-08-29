@@ -1,6 +1,6 @@
 from typing import Dict
-from alignment import State
-from processtree import *
+from skipalignments.alignment import State
+from skipalignments.processtree import *
 
 
 class Skipper(object):

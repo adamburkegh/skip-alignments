@@ -1,11 +1,14 @@
 from typing import Dict
-from processtree import *
-from alignment import *
+from skipalignments.processtree import *
+from skipalignments.alignment import *
 import random
 import pandas as pd
 import subprocess
 from tqdm import tqdm
-    
+
+EBI_EXECUTABLE = 'ebi'
+MISSING_ACTIVITY_WEIGHT = '1/1000'
+
 class EbiOccurance(object):
     def __init__(self):
         pass
@@ -36,7 +39,7 @@ class EbiOccurance(object):
                 t.label = activity_to_id[self._id_to_activity(tree, t.label)]
             else:
                 activity_to_id[self._id_to_activity(tree, t.label)] = t.label
-        pm4py.write_pnml(net, im, fm, 'model.pnml')
+        pm4py.write_pnml(net, im, fm, 'model.pnml')  # hardcoded relative path, see TODO.md
         return activity_to_id
     
     def write_log(self, log:pd.DataFrame, rename_dict:Dict[str, str]) -> pd.DataFrame:
@@ -44,11 +47,11 @@ class EbiOccurance(object):
         # rename_dict is the output of write_tree_to_petri used to rename the acitvities in the log with a uniform id
         log = log.copy()
         log['concept:name'] = log['concept:name'].apply(lambda x: rename_dict[x] if x in rename_dict else x)
-        pm4py.write_xes(log, 'log.xes')
+        pm4py.write_xes(log, 'log.xes')  # hardcoded relative path, see TODO.md
         return log
     
     def ebi_slpn(self, model='model.pnml', log='log.xes', out='smodel.slpn'):
-        subprocess.check_call([r"ebi.exe", "disc", "occ", log, model, "-o", out])
+        subprocess.check_call([EBI_EXECUTABLE, "disc", "occ", log, model, "-o", out])
     
     def validate_slpn(self, tree:ProcessTree, path='smodel.slpn'):
         file = open(path,"r")
@@ -113,7 +116,7 @@ class EbiOccurance(object):
         pm4py.view_petri_net(net, format='png')
                     
     
-    def update_visible_taus(self, tree:ProcessTree, path='smodel.slpn'):
+    def update_slpn_weights(self, tree:ProcessTree, path='smodel.slpn'):
         self.validate_slpn(tree, path)
         file = open(path,"r")
         lines = file.readlines()
@@ -121,17 +124,27 @@ class EbiOccurance(object):
         for i in range(len(lines)-1):
             if lines[i].startswith("# transition") and lines[i+1].startswith("label TAU_"):
                 lines[i+3] = "1" + lines[i+3][1:]
+            if lines[i].startswith("# weight") and lines[i+1] == "0\n":
+                lines[i+1] = MISSING_ACTIVITY_WEIGHT + "\n"
         file = open(path, "w")
         file.writelines(lines)
         file.close()
-        
+
     def ebi_trace_prob(self, trace:List[str], model='smodel.slpn'):
         time_start = time.process_time_ns()
-        res = subprocess.check_output([r"ebi.exe", "prob", "trac", model] + trace + ["-a"]).decode("utf-8")
+        res = subprocess.check_output([EBI_EXECUTABLE, "prob", "trac", model] + trace + ["-a"]).decode("utf-8")
         time_end = time.process_time_ns()
         if not 'Approximately' in res:
             raise ValueError("Ebi did not return a probability")
-        return float(res.split('\n')[0]), (time_end-time_start)
+        resprob = 0
+        try:
+            resprob = float(res.split(' ')[1])  # 'Approximately 0.09434'
+        except:
+            try:
+                resprob = float(res.split('\n')[0])  # '0.09434\nApproximately'
+            except:
+                raise ValueError(f"Could not parse Ebi return value: {res}")
+        return resprob, (time_end-time_start)
     
     def trace_probs(self, agns:Dict[str, List[List|tuple]], measure:Optional[Dict[List[str], float]]=None, model='smodel.slpn'):
         # input: agns:    var -> List[agn]

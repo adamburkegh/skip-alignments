@@ -1,4 +1,4 @@
-from processtree import *
+from skipalignments.processtree import *
 from typing import List, Optional, Any, Set
 from enum import Enum
 import queue

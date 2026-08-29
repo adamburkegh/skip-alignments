@@ -1,15 +1,60 @@
 """
+Confirms the installed package works when imported the way a downstream
+consumer (e.g. process-voids) would use it.
+
 Run with:
-    pip install -r requirements.txt
-    pytest test_external_usage.py -v
+    pip install -e .
+    python -m unittest tests.test_external_usage -v
 """
-from skipprobabilities import run_pipeline, DerivationPipeline
+import os
+import shutil
+import tempfile
+import unittest
 
-def test_import_works_from_outside_the_repo():
-    assert run_pipeline is not None
-    assert DerivationPipeline is not None
+import pandas as pd
 
-def test_pipeline_runs_from_outside_the_repo():
-    derivation = run_pipeline(output_dir="./external_test_out")
-    assert isinstance(derivation, DerivationPipeline)
-    assert len(derivation.skip_probs) > 0
+from skipalignments import DerivationPipeline, Activity, Sequence, Xor
+
+
+class ExternalUsageTests(unittest.TestCase):
+
+    def test_import_works_from_outside_the_repo(self):
+        self.assertIsNotNone(DerivationPipeline)
+        self.assertIsNotNone(Activity)
+
+    def test_pipeline_runs_from_outside_the_repo(self):
+        # EbiOccurance writes model.pnml/log.xes relative to cwd, so run
+        # from a throwaway temp directory instead of leaking them into the
+        # repo.
+        original_cwd = os.getcwd()
+        tmp_dir = tempfile.mkdtemp(prefix="skipalignments_test_")
+        os.chdir(tmp_dir)
+        try:
+            a = Activity(None, 'a', 100000)
+            a.id = "2"
+            b = Activity(None, 'b', 100000)
+            b.id = "3"
+            tree = Sequence(None, [a, b])
+            a.set_parent(tree)
+            b.set_parent(tree)
+            tree.id = "1"
+
+            log = pd.DataFrame({
+                'case:concept:name': [1],
+                'concept:name': ['a'],
+                'time:timestamp': [pd.Timestamp(year=2000, month=1, day=1)],
+            })
+            log_dist = {('a',): 1.0}
+            model_dist = {('2', '3'): 1.0}
+
+            derivation = DerivationPipeline(tree, log, pl=log_dist, pn_measure=model_dist)
+            derivation.compute("./external_test_out")
+            self.assertIsInstance(derivation, DerivationPipeline)
+            self.assertGreater(len(derivation.skip_probs), 0)
+        finally:
+            os.chdir(original_cwd)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    unittest.main()

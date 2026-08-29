@@ -10,15 +10,15 @@ This implements the techniques from the following two papers:
 
 ## Library Usage
 The project can also be installed and used as a Python library. 
-After installing the package, the skip probability functionality can be
-imported directly with `from skipalignments import *`, 
+After installing the package, the skip alignments and skip 
+probability functionality can be imported directly with 
+`from skipalignments import *`, 
 
 ## Requirements
 - `Python ≥ 3.10`
-- `pm4py`
-- `pandas`
-- `tqdm`
-- `Ebi`
+- `Ebi` - requires separate installation
+- Libraries listed under pyproject.toml (immediate dependencies) and 
+requirements.txt (output of pip freeze)
 
 ## Installation
 The project is packaged with `setuptools` (see `pyproject.toml`), with the
@@ -34,12 +34,12 @@ This installs the `skipalignments` package and its dependencies
 ## Structure of This Repository
 This repository contains everything needed to compute skip alignments and to recreate the evaluation from the paper.
 
-You can recreate the models and probabilities with `im_models.ipynb`, `indulpet_models.ipynb`, and `rand_models.ipynb`. This might take a few days.
+You can recreate the models and probabilities with `im_models.ipynb`, `indulpet_models.ipynb`, and `random_models.ipynb`. This might take a few days.
 
 The .py files carry the algorithms to compute skip alignments and skip probabilities, and they box the PM4py calls.
 
 ## Running Example
-An introduction to compute skip probabilities for subprocesses is given in `examples.ipynb`. Is discusses the tree and log from the running example in the paper.
+An introduction to compute skip probabilities for subprocesses is given in the notebook `examples/example.ipynb`. Is discusses the tree and log from the running example in the paper. A pure Python version of the same example is in `examples/quickstart.py`.
 
 ## Required Event Logs
 You need to download the event logs used in this repository to recreate the evaluation results. Download, extract, and save the .xes files to disk. You need to provide the paths to these files in each notebook.
@@ -52,9 +52,19 @@ You need to download the event logs used in this repository to recreate the eval
 We provide the computational results used in our evaluation in the folders `im_results`, `indulpet_results`, and `rand_results`. They are equivalent to the files obtained by running the three notebooks again.
 
 ## Ebi
-Querying the stochastic path languages in the derivation process requires Ebi. Follow the instructions of [Ebi](https://ebitools.org/) to setup the environment. For skip probabilities, we expect `ebi.exe` to be located in _./src/skipprobabilities_ folder.
+Querying the stochastic path languages in the derivation process requires Ebi. Follow the instructions of [Ebi](https://ebitools.org/) to setup the environment. For skip probabilities, we expect `ebi` or `ebi.exe` to be available on the 
+PATH. The exact path used can be overridden by setting the variable 
+`skipalignments.probabilities.EBI_EXECUTABLE`.
 
-## Third Party Dependencies
-As scientific library in the Python ecosystem, we rely on external libraries to offer our features. We refer to [this](https://github.com/process-intelligence-solutions/pm4py/tree/release/third_party) page for a detailed list of licenses of the dependencies used in this project. We specifically modified the PM4py library to perform our computations and refer to the PM4py [license](https://github.com/process-intelligence-solutions/pm4py/blob/release/LICENSE) for details.
-We additionally refer to [this](https://ebitools.org/) page for licensing information of Ebi.
-Finally, we compute skip alignments whose code is yet not publically available. We add reference eonce available.
+
+## Third Party Dependencies and licenses
+The code for computing alignments in [alignall.py](src/skipalignments/alignall.py) is adapted from pm4py, specifically
+
+`pm4py/algo/conformance/alignments/petri_net/variants/state_equation_a_star.py`
+
+As scientific library in the Python ecosystem, we rely on external libraries to offer our features. We refer to [this](https://github.com/process-intelligence-solutions/pm4py/tree/release/third_party) page for a detailed list of licenses of the dependencies used in this project. 
+
+ * pm4py [license](https://github.com/process-intelligence-solutions/pm4py/blob/release/LICENSE) 
+ * [ebi](https://ebitools.org/) main page with for licensing information 
+
+

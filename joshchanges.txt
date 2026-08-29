@@ -1,3 +1,5 @@
+DEPRECATED: superseded by CHANGELOG.md. Kept pending discussion with Josh
+before removal.
 
 CHANGE LOG
 

@@ -1,6 +1,6 @@
 import pm4py
-from processtree import *
-from alignment import *
+from skipalignments.processtree import *
+from skipalignments.alignment import *
 import pandas as pd
 from tqdm import tqdm
 

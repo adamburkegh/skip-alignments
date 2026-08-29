@@ -3,17 +3,17 @@ from pathlib import Path
 import pickle
 from typing import Tuple
 import pm4py
-from alignment import *
-from processtree import *
+from skipalignments.alignment import *
+from skipalignments.processtree import *
 import pandas as pd
 from tqdm import tqdm
-from alignall import *
+from skipalignments.alignall import *
 import statistics
 import random
 from tqdm import tqdm
-from execution import *
-from probabilities import *
-from skips import Skipper
+from skipalignments.execution import *
+from skipalignments.probabilities import *
+from skipalignments.skips import Skipper
 
 class EbiWeights(Enum):
     OCCURANCE = 1
@@ -98,9 +98,9 @@ class DerivationPipeline(object):
         print(activity_to_id)
         if self.pn_log is not None:
             id_filtered_log_rf = ebi.write_log(self.pn_log, activity_to_id)
-            ebi.ebi_slpn()
+            ebi.ebi_slpn(out=slpn_path)
             ebi.validate_slpn(self.tree, slpn_path)
-            ebi.update_visible_taus(self.tree, slpn_path)
+            ebi.update_slpn_weights(self.tree, slpn_path)
             time_start_ns_model_paths = time.process_time_ns()
             trace_probs, trace_counts, prob_time = ebi.trace_probs(var_C, model=slpn_path)
             time_stop_ns_model_paths = time.process_time_ns()

@@ -1,8 +1,8 @@
 from typing import Dict, Set
 
 from tqdm import tqdm
-from processtree import *
-from alignment import State
+from skipalignments.processtree import *
+from skipalignments.alignment import State
 
 class ExecutionTree(object):
     parent:Optional["ExecutionTree"] = None
