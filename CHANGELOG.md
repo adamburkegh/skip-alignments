@@ -38,6 +38,11 @@ Thanks to Joshua Gong for the heavy lifting here.
 - Test runs no longer leak `model.pnml`, `log.xes`, or output directories
   into the repository root; the pipeline now runs inside a temp directory
   for the duration of each test.
+- `ebi_slpn()`'s `disc occ` call was missing a required subcommand token
+  (`stochastic-labelled-Petri-net`) between `occ` and the log/model
+  arguments — the current Ebi CLI rejects the file path in that slot with
+  `Usage: ebi discover occurrence <COMMAND>`. Found via real-data testing
+  in the parallel `process-voids` session (local Ebi build: 0.3.14).
 
 ### Added
 - `__init__.py` is now a full facade over the package: `from skipalignments

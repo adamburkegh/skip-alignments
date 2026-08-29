@@ -51,7 +51,7 @@ class EbiOccurance(object):
         return log
     
     def ebi_slpn(self, model='model.pnml', log='log.xes', out='smodel.slpn'):
-        subprocess.check_call([EBI_EXECUTABLE, "disc", "occ", log, model, "-o", out])
+        subprocess.check_call([EBI_EXECUTABLE, "disc", "occ", "stochastic-labelled-Petri-net", log, model, "-o", out])
     
     def validate_slpn(self, tree:ProcessTree, path='smodel.slpn'):
         file = open(path,"r")
