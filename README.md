@@ -56,6 +56,10 @@ Querying the stochastic path languages in the derivation process requires Ebi. F
 PATH. The exact path used can be overridden by setting the variable 
 `skipalignments.probabilities.EBI_EXECUTABLE`.
 
+The Ebi CLI's argument shape has changed between versions; the calls in
+`probabilities.py` are known to work against Ebi 0.3.14. If Ebi rejects a
+call with a usage error, its CLI arguments may have moved on since.
+
 
 ## Third Party Dependencies and licenses
 The code for computing alignments in [alignall.py](src/skipalignments/alignall.py) is adapted from pm4py, specifically
