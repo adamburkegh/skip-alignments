@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-01
+
 Cleanup pass bringing this package back up to parity with `process-voids`'s
 independently-patched copy of the same engine code, and fixing the
 regression introduced when it was originally extracted from that monorepo.
