@@ -235,9 +235,7 @@ class DerivationPipeline(object):
         # we need to fix the conditional skip alignment probability for those sagns that never reach the node
         prob_of_sagns_reaching_n = 0.
         for s in skip_dict_backup[", ".join(variant)]:
-            skip_cnt = Skipper().count_skip_executions(node, s, 1)
-            nskip_cnt = Skipper().count_non_skip_executions(node, s, 1)
-            prob_of_sagns_reaching_n += ((skip_cnt+nskip_cnt) > 0) * sagn_prob[node][id_to_skip_dict[s.name]]
+            prob_of_sagns_reaching_n += Skipper().node_reached(node, s) * sagn_prob[node][id_to_skip_dict[s.name]]
         if prob_of_sagns_reaching_n == 0:
             return 0.
         return prob * 1/prob_of_sagns_reaching_n
@@ -249,12 +247,8 @@ class DerivationPipeline(object):
         # we need to fix the variant probability for those variants that never reach the node (i.e., in no skip alignment)
         prob_of_traces_reaching_n = 0.
         for v in variants.keys():
-            skip_cnt = 0
-            nskip_cnt = 0
-            for s in skip_dict_backup[", ".join(v)]:
-                skip_cnt += Skipper().count_skip_executions(node, s, 1)
-                nskip_cnt += Skipper().count_non_skip_executions(node, s, 1)
-            prob_of_traces_reaching_n += ((skip_cnt+nskip_cnt) > 0) * variant_prob[v]
+            reached = any(Skipper().node_reached(node, s) for s in skip_dict_backup[", ".join(v)])
+            prob_of_traces_reaching_n += reached * variant_prob[v]
         if prob_of_traces_reaching_n == 0:
             return 0.
         return prob * 1/prob_of_traces_reaching_n

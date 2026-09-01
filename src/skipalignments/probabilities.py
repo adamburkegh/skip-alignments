@@ -1,6 +1,7 @@
 from typing import Dict
 from skipalignments.processtree import *
 from skipalignments.alignment import *
+from skipalignments.skips import Skipper
 import random
 import pandas as pd
 import subprocess
@@ -194,7 +195,13 @@ class EbiOccurance(object):
     
     def _skip_agn_probs(self, state:State, node:ProcessTree, var:str, agns:Set[List|tuple], trace_probs:Dict[List[LeafNode], float], trace_counts:Dict[List[LeafNode], int]):
         prob = 0 # skip agn prob
-        if not node.id in [e.node.id for e in state.executions]+[m.node.id for l,m in state.path if isinstance(m,Skip)]+[m.node.id for l,m in state.path if isinstance(m,TauPath)]:
+        directly_reached = node.id in [e.node.id for e in state.executions]+[m.node.id for l,m in state.path if isinstance(m,Skip)]+[m.node.id for l,m in state.path if isinstance(m,TauPath)]
+        # directly_reached misses a node masked inside a coarser Skip/TauPath
+        # on one of its ancestors (the whole ancestor subtree went
+        # unwitnessed as one block); node_reached additionally covers that,
+        # see Skipper.node_reached for the containment/other-real-move
+        # reasoning.
+        if not directly_reached and not Skipper().node_reached(node, state):
             return prob
         for agn in agns:
             model_path = tuple([m for m in list(zip(*agn))[1] if m != '>>'])

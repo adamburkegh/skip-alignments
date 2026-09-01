@@ -154,13 +154,47 @@ class PipelineTests(unittest.TestCase):
             self.assertIn(node, self.derivation.skip_probs, f"Missing skip prob for node {node.id}")
 
     def test_skip_probs_are_valid_probabilities(self):
+        # small float tolerance for accumulated summation error, not a
+        # logic bound -- probabilities are genuinely in [0, 1]
+        eps = 1e-9
         for node, prob in self.derivation.skip_probs.items():
-            self.assertTrue(0.0 <= prob <= 1.0, f"Node {node.id} has out-of-range prob {prob}")
+            self.assertTrue(-eps <= prob <= 1.0 + eps, f"Node {node.id} has out-of-range prob {prob}")
 
     def test_leaf_skip_probs_are_floats(self):
         for node, prob in self.derivation.skip_probs.items():
             if isinstance(node, LeafNode):
                 self.assertIsInstance(prob, float)
+
+    def test_skip_prob_matches_paper_worked_example(self):
+        # "Skip Probabilities for Subprocesses" (ICPM 2025), running
+        # example: P_{N_5}(sk) = 0.22 for the choice node between the two
+        # ways the appeal subprocess can go (here: 'c'/'d'), derived from
+        # sigma_2 and sigma_3 each having their own optimal skip alignments
+        # in normal form and coinciding alignments over this node.
+        choice = self.derivation.tree.children[0].children[1]
+        self.assertIsInstance(choice, Xor)
+        self.assertAlmostEqual(self.derivation.skip_probs[choice], 0.22, places=2)
+
+    def test_cond_prob_matches_paper_sigma2_skip_alignment_split(self):
+        # Same paper, same example: sigma_2 has two optimal skip alignments
+        # in normal form, sagn_21 (synchronizes 'f') and sagn_22 (performs
+        # a log move on 'f' instead), with P_{sigma_2}(sagn_21) = 0.25 and
+        # P_{sigma_2}(sagn_22) = 0.75. This checks the intermediate
+        # conditional skip alignment probability, one layer below the final
+        # skip_probs aggregate checked above.
+        _, choice = self.derivation.tree.children[0].children
+        states = self.derivation.skip_dict["a, f, e"]
+        self.assertEqual(len(states), 2)
+        seen_synced_f = False
+        for state in states:
+            synced_f = any(getattr(m, 'name', None) == 'f' for _, m in state.path)
+            prob = self.derivation.cond_prob_[choice][state]
+            if synced_f:
+                seen_synced_f = True
+                self.assertAlmostEqual(prob, 0.25, places=2)  # sagn_21
+            else:
+                self.assertAlmostEqual(prob, 0.75, places=2)  # sagn_22
+        self.assertTrue(seen_synced_f)
 
     def test_output_files_written(self):
         for filename in ["tree", "skip_dict", "trace_probs", "trace_counts", "skip_probs"]:
