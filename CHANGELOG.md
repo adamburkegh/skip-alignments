@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `skipalignments.ppt`: direct import of a Toothpaste Miner Probabilistic
+  Process Tree (`.ptree` export) as a fixed-weight model, decoupled from
+  log-driven occurrence weighting. `translate_ppt` maps PPT's
+  PLoop/FLoop/Seq/Choice/Conc onto skip-alignments' own process-tree
+  operators, including the loop-topology translation PPT's reusable
+  loop-place and skip-alignments' 1-or-more redo-loop require; `compile_to_slpn`
+  then renders the translated tree directly to Ebi's plaintext `.slpn`
+  format, with every transition's weight attached at the moment it's
+  created — no pm4py, no PNML file, and no Ebi subprocess call anywhere in
+  the path. Validated against Toothpaste's own Haskell reference trace
+  probabilities (`TPConformTest.hs`) via a real Ebi binary, not just this
+  codebase's own derivation. See `skip_align_improvements.md`.
+- `skipalignments.execution.ShuffleExplosionError`, with a configurable
+  `MAX_SHUFFLE_COUNT` ceiling (`get_max_shuffle_count`/`set_max_shuffle_count`):
+  a hard, catchable stop for the And-node interleaving search in
+  `ExecutionTree.shuffle`, which is combinatorial in concurrent-branch
+  length and could previously stall for tens of minutes with no feedback
+  and no way to bound or catch it. Found via a real process-voids run
+  against BPI2013 Incidents.
+- A fast path for And-node interleaving (`_sync_only_merge`): when every
+  element being interleaved is a synchronous log move, its relative order
+  is already uniquely determined by the log's own order, so the
+  combinatorial search is skipped in favour of a single sort.
+- stdlib `logging` instrumentation in `execution.py` (predicted shuffle
+  counts, generate/keep waste ratios, per-variant timing), silent by
+  default — enable with
+  `logging.getLogger("skipalignments.execution").setLevel(logging.DEBUG)`.
+- `skipalignments.progress`: an explicit, package-wide
+  `disable_progress_bars()`/`enable_progress_bars()` switch covering every
+  `tqdm` progress bar in the library, since per-module logger configuration
+  alone could leave bars reappearing unexpectedly (a child logger with no
+  level of its own inherits its parent's).
+
 ## [0.1.2] - 2026-09-01
 
 Cleanup pass bringing this package back up to parity with `process-voids`'s
