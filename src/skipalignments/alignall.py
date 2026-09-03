@@ -3,6 +3,7 @@ from skipalignments.processtree import *
 from skipalignments.alignment import *
 import pandas as pd
 from tqdm import tqdm
+from skipalignments.progress import progress_bars_disabled
 
 from copy import copy
 
@@ -726,7 +727,7 @@ def align_sk_all(variant_strings:List[List[str]], tree:ProcessTree, timeout=100)
         for var in variant_strings:
             futures.append(executor.submit(Aligner(tree).align2, list(var), [100000]*len(var), True, timeout=timeout))
         print("Futures created")
-        progress = tqdm(total=len(futures))
+        progress = tqdm(total=len(futures), disable=progress_bars_disabled())
 
         for future in as_completed(futures):
             progress.update()

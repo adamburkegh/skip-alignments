@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 from skipalignments.processtree import *
 from skipalignments.alignment import *
 from skipalignments.skips import Skipper
@@ -6,6 +6,7 @@ import random
 import pandas as pd
 import subprocess
 from tqdm import tqdm
+from skipalignments.progress import progress_bars_disabled
 
 EBI_EXECUTABLE = 'ebi'
 MISSING_ACTIVITY_WEIGHT = '1/1000'
@@ -24,13 +25,13 @@ class EbiOccurance(object):
                 return res
         return None
 
-    def write_tree_to_petri(self, tree:ProcessTree) -> Dict[str, str]:
+    def build_petri_net(self, tree:ProcessTree):
         # transitions:
         # activity -> activity_id
         # tau -> tau_id
         # helper-tau -> silent
         # NOTE: activities with the same label are assigned the same activity_id
-        # returns a dict activity -> selected activity_id
+        # returns (net, im, fm, activity_to_id)
         tree_pm4py = tree.to_pm4py(True)
         net, im, fm = pm4py.convert.convert_to_petri_net(tree_pm4py)
         activity_to_id = {}
@@ -40,9 +41,14 @@ class EbiOccurance(object):
                 t.label = activity_to_id[self._id_to_activity(tree, t.label)]
             else:
                 activity_to_id[self._id_to_activity(tree, t.label)] = t.label
+        return net, im, fm, activity_to_id
+
+    def write_tree_to_petri(self, tree:ProcessTree) -> Dict[str, str]:
+        # returns a dict activity -> selected activity_id
+        net, im, fm, activity_to_id = self.build_petri_net(tree)
         pm4py.write_pnml(net, im, fm, 'model.pnml')  # hardcoded relative path, see TODO.md
         return activity_to_id
-    
+
     def write_log(self, log:pd.DataFrame, rename_dict:Dict[str, str]) -> pd.DataFrame:
         # log is a pm4py event log
         # rename_dict is the output of write_tree_to_petri used to rename the acitvities in the log with a uniform id
@@ -153,7 +159,7 @@ class EbiOccurance(object):
         # output: pi2(agn) IDS -> float, var -> pi2(agn) -> int
         trace_counts = {}
         trace_probs_d = {}
-        for var, ass in tqdm(agns.items()):
+        for var, ass in tqdm(agns.items(), disable=progress_bars_disabled()):
             if var not in trace_counts:
                 trace_counts[var] = {}
             for agn in ass:
@@ -163,7 +169,7 @@ class EbiOccurance(object):
                 else:
                     trace_counts[var][model_path] = trace_counts[var][model_path] + 1
         if measure is not None:
-            for var, ass in tqdm(agns.items()):
+            for var, ass in tqdm(agns.items(), disable=progress_bars_disabled()):
                 for agn in ass:
                     model_path = tuple([m for m in list(zip(*agn))[1] if m != '>>'])
                     model_path_ids = tuple([n.id for n in model_path])
@@ -175,7 +181,7 @@ class EbiOccurance(object):
         with ProcessPoolExecutor(max_workers=14) as executor:
             futures = []
             checked_ids = []
-            for var, ass in tqdm(agns.items()):
+            for var, ass in tqdm(agns.items(), disable=progress_bars_disabled()):
                 for agn in ass:
                     model_path = tuple([m for m in list(zip(*agn))[1] if m != '>>'])
                     model_path_ids = tuple([n.id for n in model_path])
@@ -183,7 +189,7 @@ class EbiOccurance(object):
                         futures.append(executor.submit(self.ebi_trace_prob, list(model_path_ids), model))
                         checked_ids.append(model_path_ids)
             print("Futures created")
-            progress = tqdm(total=len(futures))
+            progress = tqdm(total=len(futures), disable=progress_bars_disabled())
             for future in as_completed(futures):
                 progress.update()
             total_time = 0
