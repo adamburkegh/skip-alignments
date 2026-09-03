@@ -138,6 +138,49 @@ class TestTranslatePPTStructure(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
 
 
+class TestModelMoveCosts(unittest.TestCase):
+    """
+    The alignment engine's own invariant (alignment.py's Aligner.align2:
+    `assert tau_cost < activity_cost`, matching the codebase-wide convention
+    of model_move_activity_cost=100000 / model_move_tau_cost=0 used
+    everywhere else, e.g. ProcessTree.from_pm4py's callers) was never
+    honoured by translate_ppt -- it reused the same model_move_cost for
+    both Activity and Tau nodes, so every real alignment run against a
+    translated PPT tree hit that assertion. Caught by an end-to-end
+    DerivationPipeline test, not by translate_ppt's own isolated tests.
+    """
+
+    def test_activity_leaf_gets_default_activity_cost(self):
+        ppt = PPTNode('leaf', 5.0, name='a')
+        tree, weights, loop_taus = translate_ppt(ppt)
+        self.assertEqual(tree.skip_cost, 100000)
+
+    def test_tau_leaf_gets_zero_cost_by_default(self):
+        ppt = PPTNode('tau', 3.0)
+        tree, weights, loop_taus = translate_ppt(ppt)
+        self.assertEqual(tree.skip_cost, 0)
+
+    def test_ploop_synthetic_taus_get_zero_cost_by_default(self):
+        w, rho = 344.0, 2.0
+        ppt = PPTNode('ploop', w, rho=rho, children=[PPTNode('leaf', w, name='check info')])
+        tree, weights, loop_taus = translate_ppt(ppt)
+        tau_skip, loop = tree.children
+        x, tau_redo = loop.children
+        self.assertEqual(tau_skip.skip_cost, 0)
+        self.assertEqual(tau_redo.skip_cost, 0)
+        self.assertEqual(x.skip_cost, 100000)
+
+    def test_costs_are_overridable_and_stay_ordered(self):
+        ppt = PPTNode('ploop', 10.0, rho=2.0, children=[PPTNode('leaf', 10.0, name='a')])
+        tree, weights, loop_taus = translate_ppt(ppt, model_move_cost=500, model_move_tau_cost=7)
+        tau_skip, loop = tree.children
+        x, tau_redo = loop.children
+        self.assertEqual(x.skip_cost, 500)
+        self.assertEqual(tau_skip.skip_cost, 7)
+        self.assertEqual(tau_redo.skip_cost, 7)
+        self.assertLess(tau_skip.skip_cost, x.skip_cost)
+
+
 class TestTranslatePLoopWeights(unittest.TestCase):
     """
     See ppt_translation.md for the derivation. For a PLoop[rho] node with

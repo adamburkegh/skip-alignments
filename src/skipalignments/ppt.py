@@ -15,6 +15,13 @@ from typing import Dict, List, Optional, Tuple
 from skipalignments.processtree import Activity, And, LeafNode, Loop, ProcessTree, Sequence, Tau, Xor
 
 DEFAULT_MODEL_MOVE_COST = 100000
+# Matches the codebase-wide convention (ProcessTree.from_pm4py's callers:
+# model_move_activity_cost=100000, model_move_tau_cost=0) and the alignment
+# engine's own invariant (alignment.py's Aligner.align2:
+# `assert tau_cost < activity_cost`) -- taus must cost strictly less than
+# activities, or every real alignment run against the translated tree fails
+# that assertion.
+DEFAULT_MODEL_MOVE_TAU_COST = 0
 
 
 @dataclass
@@ -100,7 +107,8 @@ class _IdGen:
         return f"ppt{self._n}"
 
 
-def translate_ppt(ppt: PPTNode, model_move_cost: int = DEFAULT_MODEL_MOVE_COST) -> Tuple[ProcessTree, Dict[str, float], List[Tuple[str, str]]]:
+def translate_ppt(ppt: PPTNode, model_move_cost: int = DEFAULT_MODEL_MOVE_COST,
+                   model_move_tau_cost: int = DEFAULT_MODEL_MOVE_TAU_COST) -> Tuple[ProcessTree, Dict[str, float], List[Tuple[str, str]]]:
     """
     Translates a parsed PPTNode tree into a skip-alignments ProcessTree,
     returning (tree, weights, loop_taus):
@@ -108,20 +116,25 @@ def translate_ppt(ppt: PPTNode, model_move_cost: int = DEFAULT_MODEL_MOVE_COST) 
         Tau_skip/Tau_redo introduced by the PLoop translation -- to its
         derived SLPN weight.
       - loop_taus is a list of (tau_skip_id, tau_redo_id) pairs, one per
-        translated PLoop, needed by find_loop_structural_transitions to
-        locate and weight the two unlabelled Petri-net transitions each
-        translated loop additionally requires.
+        translated PLoop, tying each translated Loop node back to its two
+        synthetic tau ids -- used by compile_to_slpn to derive the loop's
+        own exit weight (see its Loop case).
+    model_move_cost/model_move_tau_cost must stay strictly ordered
+    (tau < activity) to satisfy the alignment engine's own invariant
+    (alignment.py's Aligner.align2: `assert tau_cost < activity_cost`) --
+    the defaults match the codebase-wide convention used everywhere else
+    (e.g. ProcessTree.from_pm4py's callers: activity=100000, tau=0).
     See ppt_translation.md for the derivation.
     """
     id_gen = _IdGen()
     weights: Dict[str, float] = {}
     loop_taus: List[Tuple[str, str]] = []
-    tree = _translate(ppt, None, id_gen, model_move_cost, weights, loop_taus)
+    tree = _translate(ppt, None, id_gen, model_move_cost, model_move_tau_cost, weights, loop_taus)
     return tree, weights, loop_taus
 
 
 def _translate(ppt: PPTNode, parent: Optional[ProcessTree], id_gen: _IdGen,
-               model_move_cost: int, weights: Dict[str, float],
+               model_move_cost: int, model_move_tau_cost: int, weights: Dict[str, float],
                loop_taus: List[Tuple[str, str]]) -> ProcessTree:
     if ppt.kind == 'leaf':
         node = Activity(parent, ppt.name, model_move_cost)
@@ -130,7 +143,7 @@ def _translate(ppt: PPTNode, parent: Optional[ProcessTree], id_gen: _IdGen,
         return node
 
     if ppt.kind == 'tau':
-        node = Tau(parent, 'tau', model_move_cost)
+        node = Tau(parent, 'tau', model_move_tau_cost)
         node.id = id_gen.next()
         weights[node.id] = ppt.weight
         return node
@@ -145,7 +158,7 @@ def _translate(ppt: PPTNode, parent: Optional[ProcessTree], id_gen: _IdGen,
         # node kind, this just stops translate_ppt from discarding it for
         # anything but leaves/taus.
         weights[node.id] = ppt.weight
-        node.children = [_translate(c, node, id_gen, model_move_cost, weights, loop_taus) for c in ppt.children]
+        node.children = [_translate(c, node, id_gen, model_move_cost, model_move_tau_cost, weights, loop_taus) for c in ppt.children]
         return node
 
     if ppt.kind == 'floop':
@@ -159,7 +172,7 @@ def _translate(ppt: PPTNode, parent: Optional[ProcessTree], id_gen: _IdGen,
         node = Sequence(parent, [])
         node.id = id_gen.next()
         weights[node.id] = ppt.weight
-        node.children = [_translate(ppt.children[0], node, id_gen, model_move_cost, weights, loop_taus)
+        node.children = [_translate(ppt.children[0], node, id_gen, model_move_cost, model_move_tau_cost, weights, loop_taus)
                           for _ in range(count)]
         return node
 
@@ -174,7 +187,7 @@ def _translate(ppt: PPTNode, parent: Optional[ProcessTree], id_gen: _IdGen,
         xor.id = id_gen.next()
         weights[xor.id] = w
 
-        tau_skip = Tau(xor, 'tau_skip', model_move_cost)
+        tau_skip = Tau(xor, 'tau_skip', model_move_tau_cost)
         tau_skip.id = id_gen.next()
         weights[tau_skip.id] = w / rho
 
@@ -187,7 +200,7 @@ def _translate(ppt: PPTNode, parent: Optional[ProcessTree], id_gen: _IdGen,
         # other Xor child, without special-casing PLoop-translated Loops.
         weights[loop.id] = w * continue_factor
 
-        x = _translate(ppt.children[0], loop, id_gen, model_move_cost, weights, loop_taus)
+        x = _translate(ppt.children[0], loop, id_gen, model_move_cost, model_move_tau_cost, weights, loop_taus)
         # The child inherits the *translated* loop's own weight (w(rho-1)/rho,
         # not PPT's own w), per the Loop rule -- but if x is itself a compound
         # subtree, its descendants' weights were computed relative to PPT's
@@ -196,7 +209,7 @@ def _translate(ppt: PPTNode, parent: Optional[ProcessTree], id_gen: _IdGen,
         # (Mirrors Toothpaste's own `scale` operation in ProbProcessTree.hs.)
         _scale_weights(x, weights, continue_factor)
 
-        tau_redo = Tau(loop, 'tau_redo', model_move_cost)
+        tau_redo = Tau(loop, 'tau_redo', model_move_tau_cost)
         tau_redo.id = id_gen.next()
         weights[tau_redo.id] = w * continue_factor
 

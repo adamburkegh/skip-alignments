@@ -234,13 +234,53 @@ surfaced during review:
 `discover_uniform_slpn`/`write_weighted_slpn` (the pm4py-based versions) no
 longer exist; `compile_to_slpn` replaced all of them.
 
-### Not yet wired up
+### Wired into DerivationPipeline
 
-`DerivationPipeline` itself doesn't have a constructor path for this yet —
-no new `EbiWeights` member, no branch in `compute()` calling the PPT path
-instead of `ebi_slpn`/`update_slpn_weights`. The building blocks above are
-complete and tested in isolation; wiring them into the pipeline's public
-API is the remaining piece.
+`DiscoverySource.TOOTHPASTE` (the enum was renamed from `EbiWeights` --
+see "Naming: EbiWeights -> DiscoverySource" below) selects this path in
+`compute()`: construct with
+
+```python
+tree, weights, loop_taus = translate_ppt(parse_ptree(open("model.ptree").read()))
+derivation = DerivationPipeline(tree, aligned_log,
+                                 pn_method=DiscoverySource.TOOTHPASTE,
+                                 pn_ppt_weights=(weights, loop_taus))
+derivation.compute(path)
+```
+
+`compute()`'s TOOTHPASTE branch calls `write_slpn` directly (no
+`EbiOccurance.write_tree_to_petri`, no pm4py, no PNML) and then the same
+generic `ebi.trace_probs`/`ebi.skip_agn_probs_traversal` every other source
+already uses. Tested end to end in
+`tests/test_derivation_toothpaste.py`, including a real
+`ebi.trace_probs` query against a compiled `.slpn`.
+
+A real bug surfaced by that end-to-end test, not by any of `ppt.py`'s own
+isolated tests: `translate_ppt` used the same `model_move_cost` for both
+`Activity` and `Tau` nodes, violating the alignment engine's own invariant
+(`alignment.py`'s `Aligner.align2`: `assert tau_cost < activity_cost`) --
+every real alignment run against a translated PPT tree failed that
+assertion. Fixed by giving `Tau` nodes their own `model_move_tau_cost`
+(default `0`, matching the codebase-wide convention used everywhere else,
+e.g. `ProcessTree.from_pm4py`'s callers: activity `100000`, tau `0`),
+threaded through `translate_ppt`/`_translate` as a new parameter alongside
+`model_move_cost`.
+
+### Naming: EbiWeights -> DiscoverySource
+
+The weight-source enum (`OCCURANCE`/`UNIFORM`, now also `TOOTHPASTE`) was
+named `EbiWeights`, which is misleading the same way `EbiOccurance` was
+(see the PPT translation section above): Ebi is only ever the final query
+backend for `trace_probs`, the same for every source -- OCCURANCE and
+TOOTHPASTE both end up querying Ebi identically, but neither the enum's
+name nor (for TOOTHPASTE) anything before that final step has anything to
+do with Ebi specifically. Renamed to `DiscoverySource`, matching the
+domain language this document already uses ("Toothpaste performs *direct*
+stochastic discovery") -- occurrence-counting and PPT/Toothpaste both are
+genuinely discovery methods in that sense; uniform is the trivial
+baseline. `EbiWeights` no longer exists; consumers importing it directly
+(rather than via `skipalignments.DerivationPipeline`'s own API) need to
+update to `DiscoverySource`.
 
 ## Alignment computation performance: the And-node interleaving blowup
 

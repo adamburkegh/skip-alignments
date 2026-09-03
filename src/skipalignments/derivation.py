@@ -13,15 +13,23 @@ import random
 from tqdm import tqdm
 from skipalignments.execution import *
 from skipalignments.probabilities import *
+from skipalignments.ppt import write_slpn
 from skipalignments.skips import Skipper
 
-class EbiWeights(Enum):
+class DiscoverySource(Enum):
+    """
+    Where a model's transition weights come from -- not anything specific
+    to Ebi (which is only ever the final query backend, for every source
+    here, including TOOTHPASTE, which involves no Ebi call until that final
+    step; see skip_align_improvements.md).
+    """
     OCCURANCE = 1
     UNIFORM = 2
+    TOOTHPASTE = 3
 
 class DerivationPipeline(object):
     
-    def __init__(self, tree:ProcessTree, aligned_log:Any, pl:Dict[Tuple[str], float]=None, pn_log:Any=None, pn_method:str=None, pn_measure=None, sagn_timeout=600):
+    def __init__(self, tree:ProcessTree, aligned_log:Any, pl:Dict[Tuple[str], float]=None, pn_log:Any=None, pn_method:str=None, pn_measure=None, pn_ppt_weights:Tuple[Dict[str,float], List[Tuple[str,str]]]=None, sagn_timeout=600):
         """
         Derivation pipeline for skip probabilities.
 
@@ -31,6 +39,10 @@ class DerivationPipeline(object):
         pn_log: The event log used to derive the model distribution
         pn_method: The stochastic method used to derive the model distribution; only used if pn_log is not None
         pn_measure: Probability distribution on the model paths
+        pn_ppt_weights: (weights, loop_taus) pair from skipalignments.ppt.translate_ppt,
+            required when pn_method is DiscoverySource.TOOTHPASTE. `tree` must
+            already be that call's own translated tree -- weights are exact,
+            decoupled from any log, and no estimation happens for this source.
         sagn_timeout: Timeout for the skip alignment computation in s; default 10 min
         """
         self.tree = tree
@@ -39,7 +51,13 @@ class DerivationPipeline(object):
             self.pl = pl
         else:
             self.pl = self.variant_prob_dist(self.aligned_log)
-        if pn_log is not None and pn_method is not None:
+        self.pn_ppt_weights = None
+        if pn_method == DiscoverySource.TOOTHPASTE:
+            assert pn_ppt_weights is not None
+            self.pn_ppt_weights = pn_ppt_weights
+            self.pn_log = None
+            self.pn_method = DiscoverySource.TOOTHPASTE
+        elif pn_log is not None and pn_method is not None:
             self.pn_log = pn_log
             self.pn_method = pn_method
         else:
@@ -48,7 +66,7 @@ class DerivationPipeline(object):
             self.pn_log = None
             self.pn_method = None
         self.sagn_timeout = sagn_timeout
-        
+
         self.variants = self.get_variant_dict(self.aligned_log)
     
     def write(self, obj:Any, path:str, name:str):
@@ -81,10 +99,10 @@ class DerivationPipeline(object):
         # compute skip alignment probabilities
         print("2/4\tComputing optimal skip alignments in normal form probabilities.")
         em = ExecutionManager()
-        if self.pn_method == EbiWeights.OCCURANCE or self.pn_method is None:
+        if self.pn_method in (DiscoverySource.OCCURANCE, DiscoverySource.TOOTHPASTE, None):
             ebi = EbiOccurance()
         else:
-            raise ValueError("Not implemented Wbi weights method used:", self.pn_method)
+            raise ValueError("Not implemented discovery source used:", self.pn_method)
         time_start_ns_agns = time.process_time_ns()
         C, global_C = em.coninciding_agns(skip_dict)
         time_stop_ns_agns = time.process_time_ns()
@@ -94,9 +112,20 @@ class DerivationPipeline(object):
         self.global_C = global_C
         var_C = em.coinciding_agns_var(global_C)
         self.var_C = var_C
-        activity_to_id = ebi.write_tree_to_petri(self.tree)
-        print(activity_to_id)
-        if self.pn_log is not None:
+        if self.pn_method == DiscoverySource.TOOTHPASTE:
+            # exact weights already known (translate_ppt) -- no estimation,
+            # no pm4py/PNML, no EbiOccurance beyond the generic trace_probs
+            # query below; see skip_align_improvements.md
+            weights, loop_taus = self.pn_ppt_weights
+            activity_to_id = write_slpn(self.tree, weights, loop_taus, out=slpn_path)
+            print(activity_to_id)
+            time_start_ns_model_paths = time.process_time_ns()
+            trace_probs, trace_counts, prob_time = ebi.trace_probs(var_C, model=slpn_path)
+            time_stop_ns_model_paths = time.process_time_ns()
+            self.trace_prob_time = (prob_time/len(trace_probs), prob_time) # avg, total
+        elif self.pn_log is not None:
+            activity_to_id = ebi.write_tree_to_petri(self.tree)
+            print(activity_to_id)
             id_filtered_log_rf = ebi.write_log(self.pn_log, activity_to_id)
             ebi.ebi_slpn(out=slpn_path)
             ebi.validate_slpn(self.tree, slpn_path)
@@ -106,6 +135,8 @@ class DerivationPipeline(object):
             time_stop_ns_model_paths = time.process_time_ns()
             self.trace_prob_time = (prob_time/len(trace_probs), prob_time) # avg, total
         else:
+            activity_to_id = ebi.write_tree_to_petri(self.tree)
+            print(activity_to_id)
             trace_probs, trace_counts, prob_time = ebi.trace_probs(var_C, self.pn_measure)
             self.trace_prob_time = (-1, -1)
         self.write(trace_probs, path, "trace_probs")

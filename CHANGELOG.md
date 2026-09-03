@@ -40,6 +40,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tqdm` progress bar in the library, since per-module logger configuration
   alone could leave bars reappearing unexpectedly (a child logger with no
   level of its own inherits its parent's).
+- `DerivationPipeline` now has a real constructor path for the PPT/Toothpaste
+  weight source: `DiscoverySource.TOOTHPASTE` plus a new `pn_ppt_weights`
+  constructor argument (the `(weights, loop_taus)` pair from `translate_ppt`).
+  `compute()`'s TOOTHPASTE branch calls `write_slpn` directly, with no
+  `EbiOccurance.write_tree_to_petri`/pm4py/PNML step. Tested end to end,
+  including a real Ebi query against the compiled `.slpn`.
+
+### Changed
+- Renamed `EbiWeights` to `DiscoverySource` (`OCCURANCE`/`UNIFORM`, now also
+  `TOOTHPASTE`). The old name was misleading the same way `EbiOccurance` is:
+  Ebi is only ever the final query backend, the same for every source — the
+  enum selects where model weights come from, not anything about Ebi
+  specifically. **Breaking**: any code importing `EbiWeights` directly needs
+  to update to `DiscoverySource`.
+
+### Fixed
+- `translate_ppt` used the same `model_move_cost` for both `Activity` and
+  `Tau` nodes, violating the alignment engine's own invariant
+  (`Aligner.align2`: `assert tau_cost < activity_cost`) — every real
+  alignment run against a translated PPT tree failed that assertion. Found
+  via the end-to-end `DerivationPipeline` test above, not by any of
+  `ppt.py`'s own isolated tests. Fixed by giving `Tau` nodes their own
+  `model_move_tau_cost` (default `0`, matching the codebase-wide convention
+  used everywhere else, e.g. `ProcessTree.from_pm4py`'s callers).
 
 ## [0.1.2] - 2026-09-01
 
