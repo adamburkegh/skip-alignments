@@ -332,6 +332,68 @@ class TestExecutionManagerShuffleWithFastPath(unittest.TestCase):
         self.assertEqual(len(on_result), 1)
 
 
+def _and_of_four_leaves():
+    # And(a, b, c, d): four leaves directly under one And node, each a
+    # single-move branch -- 4! = 24 raw interleavings, of which exactly one
+    # is order-preserving-consistent with any given total order over the
+    # four moves. Wider than the 2x2 case used elsewhere in this file, per
+    # a review of the fast-path/ceiling design asking specifically for
+    # coinciding-set equality on a 3-4 leaf And, not just a 2-branch one.
+    nodes = [Activity(None, name, 100) for name in ('a', 'b', 'c', 'd')]
+    and_node = And(None, nodes)
+    leaves = [_leaf(n, i, i + 1) for i, n in enumerate(nodes)]
+    and_tree = ExecutionTree(None, leaves, Execution(and_node, 0, 4))
+    for lf in leaves:
+        lf.set_parent(and_tree)
+    path = [('a0', 'a0'), ('b1', 'b1'), ('c2', 'c2'), ('d3', 'd3')]
+    return and_tree, path
+
+
+class TestFourLeafAndNodeCoincidingSetEquality(unittest.TestCase):
+    """
+    Directly answers the concern raised reviewing the fast path: not just
+    that _sync_only_merge's answer is *a* valid candidate, but that the
+    coinciding *set* -- the thing |C[state]| in coninciding_agns actually
+    counts, which _skip_agn_probs sums a term over once per member -- is
+    identical with the fast path on vs. off, on an And wider than the 2x2
+    case used elsewhere in this file (four leaves, not two branches of two).
+    """
+
+    def test_fast_path_set_equals_filtered_unconstrained_set(self):
+        and_tree, path = _and_of_four_leaves()
+        state = _FakeState(path)
+        sync_rank = {log: i for i, (log, _) in enumerate(path)}
+        sync_moves_log = [log for log, _ in path]
+
+        fast_result = and_tree.shuffle(state, sync_rank=sync_rank)
+        unconstrained_result = and_tree.shuffle(state, sync_rank=None)
+
+        self.assertEqual(len(unconstrained_result), 24)  # 4! raw interleavings
+        filtered_unconstrained = {
+            tuple(agn) for agn in unconstrained_result
+            if [l for l, _ in agn if l != '>>'] == sync_moves_log
+        }
+        self.assertEqual(len(fast_result), 1)
+        self.assertEqual(filtered_unconstrained, {tuple(fast_result[0])})
+
+    def test_real_call_site_coinciding_set_matches_fast_path_forced_off(self):
+        and_tree, path = _and_of_four_leaves()
+        state = _FakeState(path)
+        log_moves = []
+        log_path = [log for log, _ in path]
+        sync_moves_log = [l for l in log_path if l not in log_moves]
+
+        on_result = list(ExecutionManager().shuffle(state, log_moves, log_path, and_tree))
+
+        off_candidates = and_tree.shuffle(state, sync_rank=None)
+        off_result = [agn for agn in off_candidates
+                      if [l for l, _ in agn if l != '>>'] == sync_moves_log
+                      and [l for l, _ in agn if l != '>>'] == log_path]
+
+        self.assertEqual(on_result, off_result)
+        self.assertEqual(len(on_result), 1)
+
+
 def _two_leaf_and_tree(big_n):
     # And(a-run-of-length-big_n, b-run-of-length-big_n), each leaf a run of
     # big_n distinctly-labelled moves -- used to force a specific,
