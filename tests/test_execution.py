@@ -1,5 +1,5 @@
 """
-Unit tests for skipalignments.execution.ExecutionTree's interleaving logic.
+Unit tests for skip_alignments.execution.ExecutionTree's interleaving logic.
 
 These pin down the linearization mechanism that underlies
 ExecutionManager.coninciding_agns: coinciding alignments differ only by
@@ -31,12 +31,12 @@ Run with:
 import math
 import unittest
 
-from skipalignments.execution import (
+from skip_alignments.execution import (
     ExecutionManager, ExecutionTree, ShuffleExplosionError, _predicted_shuffle_count, _sync_only_merge,
     get_large_shuffle_count_threshold, get_max_shuffle_count, set_large_shuffle_count_threshold,
     set_max_shuffle_count,
 )
-from skipalignments.processtree import Activity, And, Execution, Sequence
+from skip_alignments.processtree import Activity, And, Execution, Sequence
 
 
 def _et():

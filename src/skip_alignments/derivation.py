@@ -3,18 +3,18 @@ from pathlib import Path
 import pickle
 from typing import Tuple
 import pm4py
-from skipalignments.alignment import *
-from skipalignments.processtree import *
+from skip_alignments.alignment import *
+from skip_alignments.processtree import *
 import pandas as pd
 from tqdm import tqdm
-from skipalignments.alignall import *
+from skip_alignments.alignall import *
 import statistics
 import random
 from tqdm import tqdm
-from skipalignments.execution import *
-from skipalignments.probabilities import *
-from skipalignments.ppt import write_slpn
-from skipalignments.skips import Skipper
+from skip_alignments.execution import *
+from skip_alignments.probabilities import *
+from skip_alignments.ppt import write_slpn
+from skip_alignments.skips import Skipper
 
 class DiscoverySource(Enum):
     """
@@ -39,7 +39,7 @@ class DerivationPipeline(object):
         pn_log: The event log used to derive the model distribution
         pn_method: The stochastic method used to derive the model distribution; only used if pn_log is not None
         pn_measure: Probability distribution on the model paths
-        pn_ppt_weights: (weights, loop_taus) pair from skipalignments.ppt.translate_ppt,
+        pn_ppt_weights: (weights, loop_taus) pair from skip_alignments.ppt.translate_ppt,
             required when pn_method is DiscoverySource.TOOTHPASTE. `tree` must
             already be that call's own translated tree -- weights are exact,
             decoupled from any log, and no estimation happens for this source.

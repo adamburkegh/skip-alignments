@@ -5,7 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+
+## [0.2.1] - 2026-09-05
+
+### Changed
+- **Breaking**: renamed the PyPI distribution from `skipalignments` to
+  `skip-alignments`, and the importable package from `skipalignments` to
+  `skip_alignments` (`import skip_alignments` / `from skip_alignments import *`).
+  The git repository (`skip-alignments`) was named deliberately by the
+  project's originator; the no-separator `skipalignments` name used for the
+  PyPI/import package since 0.1.1 was an unintentional deviation, not a
+  choice, and got corrected here before it could propagate further. The
+  distribution name (`skip-alignments`, hyphenated) matches the repo; the
+  import name (`skip_alignments`, underscored) matches what's actually
+  typed in code, since hyphens aren't legal in Python identifiers -- these
+  two not matching each other exactly is normal (`beautifulsoup4`/`bs4`,
+  `python-dateutil`/`dateutil`, etc.), not an inconsistency in itself. The
+  previous `skipalignments` PyPI project (the `0.2.0` release) is being
+  retired in favour of this one.
 
 ## [0.2.0] - 2026-09-05
 

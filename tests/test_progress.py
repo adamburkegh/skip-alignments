@@ -1,5 +1,5 @@
 """
-Unit tests for skipalignments.progress: the central, explicit on/off switch
+Unit tests for skip_alignments.progress: the central, explicit on/off switch
 for every tqdm progress bar in the package. Added after a lab run showed
 progress bars still appearing even with per-module logger configuration --
 disable_progress_bars() is meant to be a single, reliable way to silence
@@ -11,7 +11,7 @@ Run with:
 """
 import unittest
 
-import skipalignments.progress as progress
+import skip_alignments.progress as progress
 
 
 class TestProgressToggle(unittest.TestCase):

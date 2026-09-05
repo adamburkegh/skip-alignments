@@ -6,11 +6,11 @@
 
 
 import pm4py
-from skipalignments.processtree import *
-from skipalignments.alignment import *
+from skip_alignments.processtree import *
+from skip_alignments.alignment import *
 import pandas as pd
 from tqdm import tqdm
-from skipalignments.progress import progress_bars_disabled
+from skip_alignments.progress import progress_bars_disabled
 
 from copy import copy
 

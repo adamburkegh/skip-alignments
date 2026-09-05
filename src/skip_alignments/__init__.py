@@ -1,24 +1,24 @@
-# src/skipalignments/__init__.py
+# src/skip_alignments/__init__.py
 """
 Facade module that exposes the full skip-probability derivation
 (process trees, alignments, skip alignments, and the derivation pipeline)
 under a single import.
 
 Usage:
-    from skipalignments import *
+    from skip_alignments import *
 """
 import random
 import pm4py
 import pandas as pd
 
-from skipalignments import probabilities
-from skipalignments.processtree import *
-from skipalignments.alignment import *
-from skipalignments.execution import *
-from skipalignments.probabilities import *
-from skipalignments.skips import *
-from skipalignments.alignall import *
-from skipalignments.derivation import *
+from skip_alignments import probabilities
+from skip_alignments.processtree import *
+from skip_alignments.alignment import *
+from skip_alignments.execution import *
+from skip_alignments.probabilities import *
+from skip_alignments.skips import *
+from skip_alignments.alignall import *
+from skip_alignments.derivation import *
 
 
 def update_pair_taus(tree: "ProcessTree"):

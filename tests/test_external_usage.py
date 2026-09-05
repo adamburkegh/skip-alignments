@@ -13,7 +13,7 @@ import unittest
 
 import pandas as pd
 
-from skipalignments import DerivationPipeline, Activity, Sequence, Xor
+from skip_alignments import DerivationPipeline, Activity, Sequence, Xor
 
 
 class ExternalUsageTests(unittest.TestCase):
@@ -27,7 +27,7 @@ class ExternalUsageTests(unittest.TestCase):
         # from a throwaway temp directory instead of leaking them into the
         # repo.
         original_cwd = os.getcwd()
-        tmp_dir = tempfile.mkdtemp(prefix="skipalignments_test_")
+        tmp_dir = tempfile.mkdtemp(prefix="skip_alignments_test_")
         os.chdir(tmp_dir)
         try:
             a = Activity(None, 'a', 100000)

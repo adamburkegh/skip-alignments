@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from skipalignments.processtree import Activity, And, LeafNode, Loop, ProcessTree, Sequence, Tau, Xor
+from skip_alignments.processtree import Activity, And, LeafNode, Loop, ProcessTree, Sequence, Tau, Xor
 
 DEFAULT_MODEL_MOVE_COST = 100000
 # Matches the codebase-wide convention (ProcessTree.from_pm4py's callers:

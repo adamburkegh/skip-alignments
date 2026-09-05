@@ -26,7 +26,7 @@ As well as using as a library dependency, alignall.py is from pm4py.
 
 ## `EbiOccurance` hardcodes output paths relative to cwd
 
-`write_tree_to_petri` and `write_log` in `src/skipalignments/probabilities.py`
+`write_tree_to_petri` and `write_log` in `src/skip_alignments/probabilities.py`
 write `model.pnml` and `log.xes` as literal relative paths instead of
 accepting them as parameters (unlike `ebi_slpn`, `validate_slpn`,
 `update_slpn_weights`, and `ebi_trace_prob`, which already take a

@@ -4,22 +4,22 @@ import time
 from typing import Dict, Set
 
 from tqdm import tqdm
-from skipalignments.processtree import *
-from skipalignments.alignment import State
-from skipalignments.progress import progress_bars_disabled
+from skip_alignments.processtree import *
+from skip_alignments.alignment import State
+from skip_alignments.progress import progress_bars_disabled
 
 logger = logging.getLogger(__name__)
 # A separate child logger for progress-bar visibility, so it can be silenced
 # independently of the debug instrumentation above -- e.g. debug logging on
-# but bars off: logging.getLogger("skipalignments.execution").setLevel(logging.DEBUG);
-# logging.getLogger("skipalignments.execution.progress").setLevel(logging.WARNING)
+# but bars off: logging.getLogger("skip_alignments.execution").setLevel(logging.DEBUG);
+# logging.getLogger("skip_alignments.execution.progress").setLevel(logging.WARNING)
 progress_logger = logger.getChild("progress")
 
 
 def _bars_disabled() -> bool:
     """
     True if this module's progress bar(s) should be suppressed -- either
-    because the package-wide switch (skipalignments.progress) says so, which
+    because the package-wide switch (skip_alignments.progress) says so, which
     always wins, or because progress_logger isn't at DEBUG (the per-module
     default: off unless explicitly opted into).
     """

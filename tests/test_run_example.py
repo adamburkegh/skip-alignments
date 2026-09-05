@@ -1,5 +1,5 @@
 """
-Test suite for the skipalignments package's example pipeline.
+Test suite for the skip_alignments package's example pipeline.
 
 Run with:
     python -m unittest tests.test_run_example -v
@@ -17,7 +17,7 @@ import unittest
 
 import pandas as pd
 
-from skipalignments import DerivationPipeline, Activity, Sequence, Xor, Loop, LeafNode
+from skip_alignments import DerivationPipeline, Activity, Sequence, Xor, Loop, LeafNode
 
 
 OUTPUT_DIR = "./test_example_out"
@@ -125,7 +125,7 @@ class PipelineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._original_cwd = os.getcwd()
-        cls._tmp_dir = tempfile.mkdtemp(prefix="skipalignments_test_")
+        cls._tmp_dir = tempfile.mkdtemp(prefix="skip_alignments_test_")
         os.chdir(cls._tmp_dir)
         cls.derivation = run_pipeline(output_dir=OUTPUT_DIR)
 
