@@ -1,3 +1,10 @@
+# Adapted from PM4Py (https://github.com/process-intelligence-solutions/pm4py)
+# Copyright (C) Process Intelligence Solutions
+# Licensed under AGPL-3.0.
+#
+# Modified 2025 by Philipp Baer: compute all optimal alignments
+
+
 import pm4py
 from skipalignments.processtree import *
 from skipalignments.alignment import *

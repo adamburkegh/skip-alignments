@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-05
+
+First PyPI release.
+
 ### Added
 - `skipalignments.ppt`: direct import of a Toothpaste Miner Probabilistic
   Process Tree (`.ptree` export) as a fixed-weight model, decoupled from
@@ -46,6 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `compute()`'s TOOTHPASTE branch calls `write_slpn` directly, with no
   `EbiOccurance.write_tree_to_petri`/pm4py/PNML step. Tested end to end,
   including a real Ebi query against the compiled `.slpn`.
+- `LICENSE` (AGPL-3.0-only), declared in `pyproject.toml` (`license`/`license-files`)
+  and bundled into both built distributions. Required by this project's
+  dependence on, and adapted code from, pm4py (AGPL-3.0) — see the README's
+  "Third Party Dependencies and licenses" section.
+- `pyproject.toml` now carries full PyPI listing metadata: `readme`, `authors`,
+  `keywords`, `classifiers`, and project `urls`. Added a `dev` extra
+  (`build`, `twine`) for building/validating releases.
 
 ### Changed
 - Renamed `EbiWeights` to `DiscoverySource` (`OCCURANCE`/`UNIFORM`, now also

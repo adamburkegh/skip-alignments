@@ -62,13 +62,12 @@ call with a usage error, its CLI arguments may have moved on since.
 
 
 ## Third Party Dependencies and licenses
+This project is licensed under the AGPL 3.0. This is mainly due to the dependency on pm4py, which is an AGPL project. This project uses pm4py as a library, and includes adapted code from that source.
+
 The code for computing alignments in [alignall.py](src/skipalignments/alignall.py) is adapted from pm4py, specifically
 
 `pm4py/algo/conformance/alignments/petri_net/variants/state_equation_a_star.py`
 
-As scientific library in the Python ecosystem, we rely on external libraries to offer our features. We refer to [this](https://github.com/process-intelligence-solutions/pm4py/tree/release/third_party) page for a detailed list of licenses of the dependencies used in this project. 
 
- * pm4py [license](https://github.com/process-intelligence-solutions/pm4py/blob/release/LICENSE) 
- * [ebi](https://ebitools.org/) main page with for licensing information 
 
 
