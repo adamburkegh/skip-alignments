@@ -1,5 +1,5 @@
 """
-Unit tests for skip_alignments.ppt: parsing Toothpaste Miner's .ptree export
+Unit tests for skipalignments.ppt: parsing Toothpaste Miner's .ptree export
 format and translating it into skip-alignments' own ProcessTree classes with
 derived SLPN weights.
 
@@ -12,8 +12,8 @@ Run with:
 """
 import unittest
 
-from skip_alignments.processtree import Activity, And, Loop, Sequence, Tau, Xor
-from skip_alignments.ppt import PPTNode, compile_to_slpn, parse_ptree, translate_ppt
+from skipalignments.processtree import Activity, And, Loop, Sequence, Tau, Xor
+from skipalignments.ppt import PPTNode, compile_to_slpn, parse_ptree, translate_ppt
 
 
 class TestParsePTree(unittest.TestCase):

@@ -61,7 +61,7 @@ fixable by renaming — the shapes disagree. The fix is to reconcile the
 1. Import the PPT into skip-alignments' own `ProcessTree` classes
    (`Sequence`, `Xor`, `And`, `Loop`, `Activity`, `Tau`), translating loops
    per the scheme below, minting fresh unique ids as usual
-   (`skip_alignments/ppt.py`'s `translate_ppt`).
+   (`skipalignments/ppt.py`'s `translate_ppt`).
 2. Compile the translated tree directly to Ebi's `.slpn` plaintext format
    (`compile_to_slpn`), with every transition's weight attached at the
    moment it's created — no pm4py, no PNML file, no Ebi subprocess call
@@ -195,7 +195,7 @@ binary (0.3.14) and, independently, against Toothpaste's own Haskell
 reference trace probabilities (`TPConformTest.hs`'s `probLoopTests`) — not
 just this codebase's own derivation:
 
-- `skip_alignments/ppt.py`: `.ptree` parsing (`parse_ptree`), the PLoop
+- `skipalignments/ppt.py`: `.ptree` parsing (`parse_ptree`), the PLoop
   translation and weight derivation (`translate_ppt`, recording a weight
   for every translated node, not just leaves, so `compile_to_slpn`'s `Xor`
   case can treat any branch — leaf or compound — uniformly), and the direct
@@ -279,7 +279,7 @@ domain language this document already uses ("Toothpaste performs *direct*
 stochastic discovery") -- occurrence-counting and PPT/Toothpaste both are
 genuinely discovery methods in that sense; uniform is the trivial
 baseline. `EbiWeights` no longer exists; consumers importing it directly
-(rather than via `skip_alignments.DerivationPipeline`'s own API) need to
+(rather than via `skipalignments.DerivationPipeline`'s own API) need to
 update to `DiscoverySource`.
 
 ## Alignment computation performance: the And-node interleaving blowup
@@ -314,7 +314,7 @@ Both stalls occurred at the *undegraded* baseline (dose level 0.0), so
 neither is related to log degradation, and neither is addressed by caching
 alignment results across dose-response levels -- this is a stage-2
 (`coninciding_agns`) cost, independent of stage 1
-(`compute_skip_alignments`).
+(`compute_skipalignments`).
 
 ### Logging instrumentation
 
@@ -330,11 +330,11 @@ by default:
   ratio.
 - `coninciding_agns` logs per-variant elapsed time at `debug`, and its
   `tqdm` progress bar has its own child logger
-  (`skip_alignments.execution.progress`) so it can be silenced independently
+  (`skipalignments.execution.progress`) so it can be silenced independently
   of debug logging -- useful in an automated sweep where a wall of bars
   per dose-response point is noise, not signal.
 
-Enable with `logging.getLogger("skip_alignments.execution").setLevel(logging.DEBUG)`.
+Enable with `logging.getLogger("skipalignments.execution").setLevel(logging.DEBUG)`.
 
 ### Two mitigations
 
@@ -387,7 +387,7 @@ with nothing threaded through any call signature (contrast with
 `sync_rank` above, which genuinely has to be threaded):
 
 ```python
-from skip_alignments.execution import set_max_shuffle_count, set_large_shuffle_count_threshold
+from skipalignments.execution import set_max_shuffle_count, set_large_shuffle_count_threshold
 
 set_large_shuffle_count_threshold(500_000)  # warn earlier
 set_max_shuffle_count(2_000_000)            # abort earlier

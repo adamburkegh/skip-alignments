@@ -10,7 +10,7 @@ import sys
 
 import pandas as pd
 
-from skip_alignments import Activity, Sequence, Xor, Loop, DerivationPipeline
+from skipalignments import Activity, Sequence, Xor, Loop, DerivationPipeline
 
 # print_blinded() below uses Unicode operator glyphs (-> x /\ etc.); some
 # terminals (notably Windows' default cp1252 console) can't encode them

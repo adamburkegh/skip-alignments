@@ -1,7 +1,7 @@
 """
 Unit tests for DerivationPipeline's Toothpaste/PPT weight source
 (DiscoverySource.TOOTHPASTE) -- wiring translate_ppt/compile_to_slpn (see
-skip_alignments/ppt.py and skip_align_improvements.md) into the pipeline's
+skipalignments/ppt.py and skip_align_improvements.md) into the pipeline's
 public constructor, the piece flagged as "not yet wired up" after the PPT
 import work landed. EbiWeights was renamed to DiscoverySource in the same
 change, since the enum selects a weight-*source*, not anything Ebi-specific
@@ -24,9 +24,9 @@ import unittest
 
 import pandas as pd
 
-import skip_alignments.probabilities as probabilities
-from skip_alignments.derivation import DerivationPipeline, DiscoverySource
-from skip_alignments.ppt import PPTNode, translate_ppt
+import skipalignments.probabilities as probabilities
+from skipalignments.derivation import DerivationPipeline, DiscoverySource
+from skipalignments.ppt import PPTNode, translate_ppt
 
 
 def _find_ebi_executable():
@@ -50,8 +50,8 @@ class TestDiscoverySourceRename(unittest.TestCase):
         self.assertTrue(hasattr(DiscoverySource, 'TOOTHPASTE'))
 
     def test_importable_from_package_facade(self):
-        import skip_alignments
-        self.assertIs(skip_alignments.DiscoverySource, DiscoverySource)
+        import skipalignments
+        self.assertIs(skipalignments.DiscoverySource, DiscoverySource)
 
 
 class TestDerivationPipelineToothpasteConstruction(unittest.TestCase):
@@ -95,7 +95,7 @@ class TestDerivationPipelineToothpasteEndToEnd(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._original_cwd = os.getcwd()
-        cls._tmp_dir = tempfile.mkdtemp(prefix="skip_alignments_toothpaste_derivation_test_")
+        cls._tmp_dir = tempfile.mkdtemp(prefix="skipalignments_toothpaste_derivation_test_")
         os.chdir(cls._tmp_dir)
         probabilities.EBI_EXECUTABLE = _EBI_EXECUTABLE
 

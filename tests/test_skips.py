@@ -1,5 +1,5 @@
 """
-Unit tests for skip_alignments.skips.Skipper's per-node skip/non-skip
+Unit tests for skipalignments.skips.Skipper's per-node skip/non-skip
 counting.
 
 Run with:
@@ -12,10 +12,10 @@ import unittest
 
 import pandas as pd
 
-from skip_alignments import DerivationPipeline
-from skip_alignments.alignment import Aligner
-from skip_alignments.processtree import Activity, Loop, Sequence
-from skip_alignments.skips import Skipper
+from skipalignments import DerivationPipeline
+from skipalignments.alignment import Aligner
+from skipalignments.processtree import Activity, Loop, Sequence
+from skipalignments.skips import Skipper
 
 from tests.test_run_example import build_example_tree
 
@@ -148,7 +148,7 @@ class TestSkipProbsEndToEndLoopMasking(unittest.TestCase):
 
         derivation = DerivationPipeline(tree, log, pl=pl, pn_measure=pn_measure)
         cls._original_cwd = os.getcwd()
-        cls._tmp_dir = tempfile.mkdtemp(prefix="skip_alignments_test_")
+        cls._tmp_dir = tempfile.mkdtemp(prefix="skipalignments_test_")
         os.chdir(cls._tmp_dir)
         derivation.compute("out")
         os.chdir(cls._original_cwd)

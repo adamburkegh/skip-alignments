@@ -1,6 +1,6 @@
 """
 End-to-end validation of the PLoop-weighted SLPN path (translate_ppt ->
-compile_to_slpn, both in skip_alignments.ppt, no pm4py/Ebi involved until
+compile_to_slpn, both in skipalignments.ppt, no pm4py/Ebi involved until
 this test queries the result) against Toothpaste's OWN reference trace
 probabilities.
 
@@ -31,7 +31,7 @@ import subprocess
 import tempfile
 import unittest
 
-from skip_alignments.ppt import PPTNode, compile_to_slpn, translate_ppt
+from skipalignments.ppt import PPTNode, compile_to_slpn, translate_ppt
 
 
 def _find_ebi_executable():
@@ -69,7 +69,7 @@ class TestCompiledSlpnMatchesToothpasteOracle(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._original_cwd = os.getcwd()
-        cls._tmp_dir = tempfile.mkdtemp(prefix="skip_alignments_slpn_oracle_test_")
+        cls._tmp_dir = tempfile.mkdtemp(prefix="skipalignments_slpn_oracle_test_")
         os.chdir(cls._tmp_dir)
 
         w, rho = 1.0, 3.0

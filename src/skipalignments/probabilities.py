@@ -1,12 +1,12 @@
 from typing import Dict, List
-from skip_alignments.processtree import *
-from skip_alignments.alignment import *
-from skip_alignments.skips import Skipper
+from skipalignments.processtree import *
+from skipalignments.alignment import *
+from skipalignments.skips import Skipper
 import random
 import pandas as pd
 import subprocess
 from tqdm import tqdm
-from skip_alignments.progress import progress_bars_disabled
+from skipalignments.progress import progress_bars_disabled
 
 EBI_EXECUTABLE = 'ebi'
 MISSING_ACTIVITY_WEIGHT = '1/1000'
