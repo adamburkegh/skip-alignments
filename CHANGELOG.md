@@ -24,6 +24,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previous `skipalignments` PyPI project (the `0.2.0` release) is being
   retired in favour of this one.
 
+### Fixed
+- Added defensiveness for divide by zero in 
+-- `ExecutionManager.coninciding_agns` divided by zero (`ZeroDivisionError`)
+  computing the "Compression in skip alignments" ratio whenever there were
+  no variants to report on at all (an empty `skip_dict`, e.g. a
+  degraded-to-nothing log) or a variant with zero computed states. Found
+  via a real process-voids run. A zero-states variant's (empty) coinciding
+  set is still recorded; it's just excluded from the ratio average rather
+  than dividing by zero or skewing it with a fabricated value.
+-- `DerivationPipeline.compute()`, same degraded-to-nothing root cause
+-- `DerivationPipeline.stats()`, average sagns per variant, average time per
+  variant among non-timed-out ones, and average agns per variant all
+  divided by a count that's zero for a degraded-to-nothing result.
+
 ## [0.2.0] - 2026-09-05
 
 First PyPI release.

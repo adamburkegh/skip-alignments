@@ -106,7 +106,8 @@ class DerivationPipeline(object):
         time_start_ns_agns = time.process_time_ns()
         C, global_C = em.coninciding_agns(skip_dict)
         time_stop_ns_agns = time.process_time_ns()
-        self.agn_time = ((time_stop_ns_agns-time_start_ns_agns)/sum(len(v) for k,v in skip_dict.items()), time_stop_ns_agns-time_start_ns_agns) # avg, total
+        total_states = sum(len(v) for k,v in skip_dict.items())
+        self.agn_time = ((time_stop_ns_agns-time_start_ns_agns)/total_states if total_states else 0, time_stop_ns_agns-time_start_ns_agns) # avg, total
         em.validate(global_C)
         self.C = C
         self.global_C = global_C
@@ -122,7 +123,7 @@ class DerivationPipeline(object):
             time_start_ns_model_paths = time.process_time_ns()
             trace_probs, trace_counts, prob_time = ebi.trace_probs(var_C, model=slpn_path)
             time_stop_ns_model_paths = time.process_time_ns()
-            self.trace_prob_time = (prob_time/len(trace_probs), prob_time) # avg, total
+            self.trace_prob_time = (prob_time/len(trace_probs) if trace_probs else 0, prob_time) # avg, total
         elif self.pn_log is not None:
             activity_to_id = ebi.write_tree_to_petri(self.tree)
             print(activity_to_id)
@@ -133,7 +134,7 @@ class DerivationPipeline(object):
             time_start_ns_model_paths = time.process_time_ns()
             trace_probs, trace_counts, prob_time = ebi.trace_probs(var_C, model=slpn_path)
             time_stop_ns_model_paths = time.process_time_ns()
-            self.trace_prob_time = (prob_time/len(trace_probs), prob_time) # avg, total
+            self.trace_prob_time = (prob_time/len(trace_probs) if trace_probs else 0, prob_time) # avg, total
         else:
             activity_to_id = ebi.write_tree_to_petri(self.tree)
             print(activity_to_id)
@@ -164,7 +165,9 @@ class DerivationPipeline(object):
         time_start_ns_derivation3 = time.process_time_ns()
         self.skip_probs = self.recur_node_prob(self.tree, self.variants, skip_dict, skips, cond_prob_, self.pl, id_to_skip_dict, id_to_skip_dict_backup, skip_dict_backup)
         time_stop_ns_derivation3 = time.process_time_ns()
-        self.derivation_time = (((time_stop_ns_derivation1-time_start_ns_derivation1)+(time_stop_ns_derivation2-time_start_ns_derivation2)+(time_stop_ns_derivation3-time_start_ns_derivation3))/len(self.variants.keys()), (time_stop_ns_derivation1-time_start_ns_derivation1)+(time_stop_ns_derivation2-time_start_ns_derivation2)+(time_stop_ns_derivation3-time_start_ns_derivation3)) # avg, total
+        total_derivation_time = (time_stop_ns_derivation1-time_start_ns_derivation1)+(time_stop_ns_derivation2-time_start_ns_derivation2)+(time_stop_ns_derivation3-time_start_ns_derivation3)
+        num_variants = len(self.variants.keys())
+        self.derivation_time = (total_derivation_time/num_variants if num_variants else 0, total_derivation_time) # avg, total
         self.write(self.skip_probs, path, "skip_probs")
 
         print("Done.")
@@ -174,13 +177,17 @@ class DerivationPipeline(object):
     
     def stats(self):
         print("---=== Skip alignment computation (timeout = " + str(self.sagn_timeout) + "s) ===---")
-        print("Avg. number of sagns per trace variant [incl timeouts]:", sum(len(v) for v in self.skip_dict.values())/len(self.variants))
+        print("Avg. number of sagns per trace variant [incl timeouts]:",
+              sum(len(v) for v in self.skip_dict.values())/len(self.variants) if self.variants else 0)
         print("Total number of sagns [incl timeouts]:", sum(len(v) for v in self.skip_dict.values()))
-        print("Avg. time per log trace variant (ns) [no timeouts]:", sum(v for v in self.skip_times.values() if v != -1)/sum(v!=-1 for v in self.skip_times.values()))
+        num_not_timed_out = sum(v!=-1 for v in self.skip_times.values())
+        print("Avg. time per log trace variant (ns) [no timeouts]:",
+              sum(v for v in self.skip_times.values() if v != -1)/num_not_timed_out if num_not_timed_out else 0)
         print("Total time all sagns (ns) [no timeouts]:", sum(v for v in self.skip_times.values() if v != -1))
 
         print("---=== Unfolding skip alignments ===---")
-        print("Avg. number of agns for a trace variant [incl timeouts] (ns):", sum(len(v) for v in self.var_C.values())/len(self.var_C))
+        print("Avg. number of agns for a trace variant [incl timeouts] (ns):",
+              sum(len(v) for v in self.var_C.values())/len(self.var_C) if self.var_C else 0)
         print("Total number of agns [incl timeouts] (ns):", sum(len(v) for v in self.var_C.values()))
         print("Avg. time per set of agns for a skip alignment (ns):", self.agn_time[0])
         print("Total time for all agns (ns):", self.agn_time[1])

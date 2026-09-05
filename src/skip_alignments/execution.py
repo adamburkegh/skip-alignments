@@ -450,9 +450,17 @@ class ExecutionManager(object):
             if debug:
                 logger.debug("coninciding_agns: variant=%r states=%d elapsed_ns=%d",
                               var, len(states), time.process_time_ns() - var_start)
-            ratio_per_var.append(sum(len(x) for x in already_found)/len(states))
+            # a variant with zero states (e.g. a timed-out/degraded-away
+            # variant) has no compression ratio to report -- record its
+            # (empty) coinciding set but don't let it divide by zero, and
+            # don't let it skew the average with a fabricated value
+            if states:
+                ratio_per_var.append(sum(len(x) for x in already_found)/len(states))
             global_C[var] = already_found
-        print("Compression in skip alignments was 1 :", sum(ratio_per_var)/len(ratio_per_var))
+        if ratio_per_var:
+            print("Compression in skip alignments was 1 :", sum(ratio_per_var)/len(ratio_per_var))
+        else:
+            print("Compression in skip alignments was 1 : N/A (no variants with computed alignments)")
         return C, global_C
     
     def validate(self, global_C:Dict[str, Set[List[List|tuple]]]):

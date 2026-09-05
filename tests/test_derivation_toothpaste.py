@@ -15,6 +15,8 @@ Run with:
 The end-to-end test is skipped if a real Ebi binary isn't available (see
 tests/test_slpn_weighting.py for the same convention).
 """
+import contextlib
+import io
 import os
 import shutil
 import tempfile
@@ -131,6 +133,70 @@ def _all_nodes(tree):
     for c in tree.children:
         nodes |= _all_nodes(c)
     return nodes
+
+
+class TestComputeEmptyInputsDoNotDivideByZero(unittest.TestCase):
+    """
+    A degraded-to-nothing log (zero variants, zero skip alignments) crashed
+    compute() with ZeroDivisionError -- reported from a real process-voids
+    degradation run, right after (and with the same root cause as)
+    coninciding_agns' compression-ratio bug in execution.py. Three separate
+    summary-statistics lines in compute() (agn_time, trace_prob_time,
+    derivation_time) all divide by a count that's zero in this state.
+
+    Forces the exact degraded-to-nothing precondition (self.variants={},
+    empty skip_dict via sagns_precomputed={}) directly, decoupled from
+    whether compute_skip_alignments/pm4py itself handles a truly empty
+    aligned_log gracefully upstream -- a separate concern from these three
+    lines.
+    """
+
+    def test_compute_with_empty_variants_and_skip_dict_does_not_raise(self):
+        ppt = PPTNode('leaf', 1.0, name='a')
+        tree, weights, loop_taus = translate_ppt(ppt)
+        log = pd.DataFrame({
+            'case:concept:name': [1],
+            'concept:name': ['a'],
+            'time:timestamp': [pd.Timestamp(year=2000, month=1, day=1)],
+        })
+        derivation = DerivationPipeline(
+            tree, log, pn_method=DiscoverySource.TOOTHPASTE, pn_ppt_weights=(weights, loop_taus),
+        )
+        derivation.variants = {}
+        derivation.pl = {}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            derivation.compute(tmp, sagns_precomputed={})
+
+        self.assertEqual(set(derivation.skip_probs.keys()), _all_nodes(tree))
+        self.assertTrue(all(p == 0.0 for p in derivation.skip_probs.values()))
+        self.assertEqual(derivation.agn_time[0], 0)
+        self.assertEqual(derivation.trace_prob_time[0], 0)
+        self.assertEqual(derivation.derivation_time[0], 0)
+
+    def test_stats_with_empty_variants_and_skip_dict_does_not_raise(self):
+        # stats() isn't called by compute() itself, but is the exact same
+        # degraded-to-nothing precondition and the exact same bug pattern
+        # (three more unguarded len()/sum() divisions) -- found proactively
+        # while checking for a third instance of the reported bug, not from
+        # a real crash report this time.
+        ppt = PPTNode('leaf', 1.0, name='a')
+        tree, weights, loop_taus = translate_ppt(ppt)
+        log = pd.DataFrame({
+            'case:concept:name': [1],
+            'concept:name': ['a'],
+            'time:timestamp': [pd.Timestamp(year=2000, month=1, day=1)],
+        })
+        derivation = DerivationPipeline(
+            tree, log, pn_method=DiscoverySource.TOOTHPASTE, pn_ppt_weights=(weights, loop_taus),
+        )
+        derivation.variants = {}
+        derivation.pl = {}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            derivation.compute(tmp, sagns_precomputed={})
+            with contextlib.redirect_stdout(io.StringIO()):
+                derivation.stats()
 
 
 if __name__ == '__main__':

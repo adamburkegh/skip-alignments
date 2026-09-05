@@ -28,6 +28,8 @@ keep 659):
 Run with:
     python -m unittest tests.test_execution -v
 """
+import contextlib
+import io
 import math
 import unittest
 
@@ -511,6 +513,27 @@ class TestConfigurableThresholds(unittest.TestCase):
             and_tree.shuffle(state)
         self.assertIn("MAX_SHUFFLE_COUNT=10", str(ctx.exception))
 
+
+class TestConincidingAgnsEmptyInputs(unittest.TestCase):
+    """
+    ExecutionManager.coninciding_agns divides by len(ratio_per_var) (all
+    variants) and, per variant, by len(states) -- both zero-able and
+    previously unguarded. Reported from a real process-voids run: an empty
+    skip_dict (no variants at all, e.g. a degraded-to-nothing log) crashed
+    with ZeroDivisionError at the final compression-ratio print.
+    """
+
+    def test_empty_skip_dict_does_not_raise(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            C, global_C = ExecutionManager().coninciding_agns({})
+        self.assertEqual(C, {})
+        self.assertEqual(global_C, {})
+
+    def test_variant_with_zero_states_does_not_raise(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            C, global_C = ExecutionManager().coninciding_agns({'some_var': []})
+        self.assertEqual(C, {})
+        self.assertEqual(global_C, {'some_var': []})
 
 if __name__ == '__main__':
     unittest.main()
