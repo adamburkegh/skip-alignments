@@ -1,4 +1,6 @@
 # Skip Probability Computation
+[![PyPI](https://img.shields.io/pypi/v/skipalignments.svg)](https://pypi.org/project/skipalignments/)
+
 In process mining, alignments are a core concept to synchronize actual process executions with a process model.
 This repository contains the code to compute _skip probabilities_ for a given log and process tree. We provide all source code and references to replicate the results of skip probabilities from the paper "Skip Probabilities for Subprocesses".
 
