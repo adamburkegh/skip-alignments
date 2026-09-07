@@ -5,6 +5,7 @@ import queue
 from functools import total_ordering
 from collections import defaultdict
 import time
+import warnings
 
 level_incentive = 0
 
@@ -956,7 +957,25 @@ class Aligner(object):
     
     def align2(self, trace: List[str], log_move_costs:Optional[List[int]], all_optimal=False, debug=False, timeout=None):
         """
-        Main A* algorithm.
+        Alias for align_normal_form(), kept for backward compatibility.
+        Pending deprecation; prefer align_normal_form().
+        """
+        warnings.warn(
+            "Aligner.align2() may be deprecated in a future release; "
+            "prefer Aligner.align_normal_form() in new code.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+        return self.align_normal_form(trace, log_move_costs, all_optimal=all_optimal, debug=debug, timeout=timeout)
+
+    def align_normal_form(self, trace: List[str], log_move_costs:Optional[List[int]], all_optimal=False, debug=False, timeout=None):
+        """
+        Main A* algorithm. Computes optimal skip alignments in normal form: an
+        entirely-unwitnessed subtree is lumped into one Skip/TauPath move on
+        its coarsest ancestor, rather than one model move per missing leaf
+        activity. For classical alignments without this lumping, see
+        alignall.align_pn_all/align_pn_all_multi instead.
+
         Returns a list of goal states and the paths to reach them. state.path is the skip alignment you may look for.
 
         trace: List of activities
@@ -965,7 +984,7 @@ class Aligner(object):
         debug: If True, prints the search stack. Default: False
         timeout: If not None, this is the maximal computation time in s
 
-        Returns: 
+        Returns:
             if all_optimal == True:
                 (list of states for optimal skip alignments in normal form, computation time in ns)
             else:

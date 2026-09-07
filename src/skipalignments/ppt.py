@@ -17,7 +17,7 @@ from skipalignments.processtree import Activity, And, LeafNode, Loop, ProcessTre
 DEFAULT_MODEL_MOVE_COST = 100000
 # Matches the codebase-wide convention (ProcessTree.from_pm4py's callers:
 # model_move_activity_cost=100000, model_move_tau_cost=0) and the alignment
-# engine's own invariant (alignment.py's Aligner.align2:
+# engine's own invariant (alignment.py's Aligner.align_normal_form:
 # `assert tau_cost < activity_cost`) -- taus must cost strictly less than
 # activities, or every real alignment run against the translated tree fails
 # that assertion.
@@ -121,7 +121,7 @@ def translate_ppt(ppt: PPTNode, model_move_cost: int = DEFAULT_MODEL_MOVE_COST,
         own exit weight (see its Loop case).
     model_move_cost/model_move_tau_cost must stay strictly ordered
     (tau < activity) to satisfy the alignment engine's own invariant
-    (alignment.py's Aligner.align2: `assert tau_cost < activity_cost`) --
+    (alignment.py's Aligner.align_normal_form: `assert tau_cost < activity_cost`) --
     the defaults match the codebase-wide convention used everywhere else
     (e.g. ProcessTree.from_pm4py's callers: activity=100000, tau=0).
     See ppt_translation.md for the derivation.

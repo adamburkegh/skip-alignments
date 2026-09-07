@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Changed
+- Renamed `Aligner.align2` to `Aligner.align_normal_form`, to distinguish it
+  from classical alignment (see `alignall.align_pn_all`/`align_pn_all_multi`)
+  and to name what it actually does: compute optimal skip alignments in
+  normal form, lumping an entirely-unwitnessed subtree into one Skip/TauPath
+  move rather than one model move per missing leaf activity. `align2` is
+  kept as a backward-compatible alias (`PendingDeprecationWarning`, not
+  removed) for collaborators still depending on an ancestor project's API.
+- `EbiOccurance.build_petri_net` now returns a 5-tuple
+  (`net, im, fm, activity_to_id, tau_ids`), adding `tau_ids`: the set of
+  transition labels that are genuine `Tau` leaves. **Breaking** for any
+  direct caller of `build_petri_net` (not `write_tree_to_petri`, whose own
+  return contract is unchanged).
+
+### Fixed
+- `align_pn_all`/`align_pn_all_multi`/`align_pn_all_for_one`/
+  `align_pn_one_for_one`'s `net_model_move` priced a genuine `ProcessTree`
+  `Tau` leaf's model move at the full activity cost (100000) instead of 0,
+  whenever the net came from `EbiOccurance.build_petri_net` (which labels
+  every leaf, `Tau` included, with its own opaque tree id via
+  `to_pm4py(use_ids=True)` — the `"TAU"`-prefix check only matches
+  `to_pm4py(use_ids=False)`'s labelling). This mispriced the model
+  legitimately choosing its own free tau branch (e.g. `Xor(activity, Tau)`)
+  as a deviation, which could bias the A* search away from a genuinely
+  optimal alignment when comparing against equal-cost alternatives, not
+  just mislabel a correct one after the fact. Found via a process-voids
+  report on the running-example fixture (`payment_approval`'s
+  `schedule_choice = Xor(s, Tau)`). Fixed by having `build_petri_net`
+  additionally return `tau_ids`, and the four functions above take an
+  optional `tau_ids` parameter to price those transitions at 0; omitting
+  it preserves the old (mispriced) behaviour for hand-built nets that use
+  `to_pm4py(use_ids=False)`'s `"TAU_"`-prefix convention instead.
+
 ## [0.2.1] - 2026-09-05
 
 ### Changed

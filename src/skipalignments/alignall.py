@@ -571,7 +571,29 @@ def __reconstruct_alignment(state, visited, queued, traversed, ret_tuple_as_tran
     return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
             'traversed_arcs': traversed, 'lp_solved': lp_solved}
 
-def align_pn_all(var:List[str], net, init, final, id_loop_list, cost_bound=10**8, timeout=100):
+def _net_model_move(tau_ids=None):
+    # A model move is free (cost 0) for a genuine tau: either one of
+    # pm4py's own auto-inserted invisible routing transitions (label
+    # None), or -- when the net came from a ProcessTree via
+    # EbiOccurance.build_petri_net (which labels every leaf, Tau included,
+    # with its own opaque tree id, not a "TAU"-prefixed name) -- a
+    # transition whose label is in the caller-supplied tau_ids set. The
+    # "TAU" string-prefix check only matches ProcessTree.to_pm4py's
+    # use_ids=False labelling convention; nets built with use_ids=True
+    # need tau_ids to price their Tau leaves correctly, or a genuine free
+    # tau branch gets mispriced at the full model-move cost. See
+    # CHANGELOG.md.
+    def net_model_move(t):
+        if t.label is None:
+            return 0
+        if tau_ids is not None and t.label in tau_ids:
+            return 0
+        if t.label.startswith("TAU"):
+            return 0
+        return 100000
+    return net_model_move
+
+def align_pn_all(var:List[str], net, init, final, id_loop_list, cost_bound=10**8, timeout=100, tau_ids=None):
     """
     Computes all optimal alignments free from cycles. It does not use multiprocessing.
 
@@ -582,15 +604,13 @@ def align_pn_all(var:List[str], net, init, final, id_loop_list, cost_bound=10**8
     id_loop_list: List of ids of loop nodes that potentially cycle
     cost_bound: Upper limit for the costs an optimal alignment can have
     timeout: Maximal computation time in s
+    tau_ids: Optional set of transition labels that are genuine zero-cost
+        Tau leaves (e.g. EbiOccurance.build_petri_net's tau_ids return
+        value), needed when net was built with to_pm4py(use_ids=True)
 
     Returns: Dict that maps variant string to tuples (total computation time in ns, (list of optimal alignments, -1 for timeout otherwise 0, computation time for the first optimal alignment in ns))
     """
-    def net_model_move(t):
-        if t.label is None:
-            return 0
-        if t.label.startswith("TAU"):
-            return 0
-        return 100000
+    net_model_move = _net_model_move(tau_ids)
 
     param = {
         'trace_cost_function': [100000]*len(var),
@@ -603,7 +623,7 @@ def align_pn_all(var:List[str], net, init, final, id_loop_list, cost_bound=10**8
     #agn = apply_trace(var_df, net, init, final, [], parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR)
     return apply_log(var_df, net, init, final, id_loop_list, cost_bound, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR)
 
-def align_pn_all_multi(log, net, init, final, id_loop_list, tree=None, timeout=100):
+def align_pn_all_multi(log, net, init, final, id_loop_list, tree=None, timeout=100, tau_ids=None):
     """
     Computes all optimal alignments free from cycles. It uses multiprocessing.
 
@@ -614,15 +634,13 @@ def align_pn_all_multi(log, net, init, final, id_loop_list, tree=None, timeout=1
     id_loop_list: List of ids of loop nodes that potentially cycle
     tree: Process tree
     timeout: Maximal computation time in s
+    tau_ids: Optional set of transition labels that are genuine zero-cost
+        Tau leaves (e.g. EbiOccurance.build_petri_net's tau_ids return
+        value), needed when net was built with to_pm4py(use_ids=True)
 
     Returns: Dict that maps variant string to tuples (total computation time in ns, (list of optimal alignments, -1 for timeout otherwise 0, computation time for the first optimal alignment in ns))
     """
-    def net_model_move(t):
-        if t.label is None:
-            return 0
-        if t.label.startswith("TAU"):
-            return 0
-        return 100000
+    net_model_move = _net_model_move(tau_ids)
 
     param = {
         'trace_cost_function': [100000]*1000,
@@ -633,7 +651,7 @@ def align_pn_all_multi(log, net, init, final, id_loop_list, tree=None, timeout=1
     }
     return apply_multiprocessing(log, net, init, final, id_loop_list, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR, tree=tree)
 
-def align_pn_all_for_one(var:List[str], net, init, final, id_loop_list, cost_bound=10**8, timeout=100):
+def align_pn_all_for_one(var:List[str], net, init, final, id_loop_list, cost_bound=10**8, timeout=100, tau_ids=None):
     """
     Computes all optimal alignments free from cycles. It does not use multiprocessing.
 
@@ -644,15 +662,12 @@ def align_pn_all_for_one(var:List[str], net, init, final, id_loop_list, cost_bou
     id_loop_list: List of ids of loop nodes that potentially cycle
     cost_bound: Upper limit for the costs an optimal alignment can have
     timeout: Maximal computation time in s
+    tau_ids: Optional set of transition labels that are genuine zero-cost
+        Tau leaves, needed when net was built with to_pm4py(use_ids=True)
 
     Returns: Computation time in ns
     """
-    def net_model_move(t):
-        if t.label is None:
-            return 0
-        if t.label.startswith("TAU"):
-            return 0
-        return 100000
+    net_model_move = _net_model_move(tau_ids)
 
     param = {
         'trace_cost_function': [100000]*len(var),
@@ -666,7 +681,7 @@ def align_pn_all_for_one(var:List[str], net, init, final, id_loop_list, cost_bou
         apply_log(var_df, net, init, final, id_loop_list, cost_bound, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR)
     return (time.process_time_ns()-time_start)/200
 
-def align_pn_one_for_one(var:List[str], net, init, final, id_loop_list, cost_bound=10**8, timeout=100, cnt=2000):
+def align_pn_one_for_one(var:List[str], net, init, final, id_loop_list, cost_bound=10**8, timeout=100, cnt=2000, tau_ids=None):
     """
     Computes one optimal alignment free from cycles. It does not use multiprocessing.
 
@@ -678,15 +693,12 @@ def align_pn_one_for_one(var:List[str], net, init, final, id_loop_list, cost_bou
     cost_bound: Upper limit for the costs an optimal alignment can have
     timeout: Maximal computation time in s
     cnt: Number of iterations to perform the computation of the alignment for precise timing
+    tau_ids: Optional set of transition labels that are genuine zero-cost
+        Tau leaves, needed when net was built with to_pm4py(use_ids=True)
 
     Returns: Computation time in ns
     """
-    def net_model_move(t):
-        if t.label is None:
-            return 0
-        if t.label.startswith("TAU"):
-            return 0
-        return 100000
+    net_model_move = _net_model_move(tau_ids)
 
     param = {
         'trace_cost_function': [100000]*len(var),
@@ -715,7 +727,7 @@ def align_sk_all_for_one(tree:ProcessTree, var:List[str], timeout=100, cnt=2000)
     timer = time.process_time_ns()
     aligner = Aligner(tree)
     for _ in range(cnt):
-        aligner.align2(list(var), [100000]*len(var), True, timeout=timeout)
+        aligner.align_normal_form(list(var), [100000]*len(var), True, timeout=timeout)
     return (time.process_time_ns()-timer)/cnt 
 
 def align_sk_all(variant_strings:List[List[str]], tree:ProcessTree, timeout=100):
@@ -732,7 +744,7 @@ def align_sk_all(variant_strings:List[List[str]], tree:ProcessTree, timeout=100)
     with ProcessPoolExecutor(max_workers=14) as executor:
         futures = []
         for var in variant_strings:
-            futures.append(executor.submit(Aligner(tree).align2, list(var), [100000]*len(var), True, timeout=timeout))
+            futures.append(executor.submit(Aligner(tree).align_normal_form, list(var), [100000]*len(var), True, timeout=timeout))
         print("Futures created")
         progress = tqdm(total=len(futures), disable=progress_bars_disabled())
 

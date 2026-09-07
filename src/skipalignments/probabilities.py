@@ -25,13 +25,30 @@ class EbiOccurance(object):
                 return res
         return None
 
+    def _tau_leaf_ids(self, tree:ProcessTree) -> set:
+        # ids of genuine Tau leaves in the tree, as opposed to Activity
+        # leaves or pm4py's own auto-inserted invisible routing
+        # transitions (which carry label None, not a tree id, and are
+        # handled separately by callers). build_petri_net's to_pm4py(True)
+        # gives every leaf -- Tau included -- its own opaque tree id, so a
+        # Tau leaf's net transition ends up indistinguishable from an
+        # Activity's by label alone; callers pricing model moves need this
+        # set to price a Tau leaf's model move at its real (usually zero)
+        # cost instead of a real activity's.
+        ids = set()
+        if isinstance(tree, Tau):
+            ids.add(tree.id)
+        for c in tree.children:
+            ids |= self._tau_leaf_ids(c)
+        return ids
+
     def build_petri_net(self, tree:ProcessTree):
         # transitions:
         # activity -> activity_id
         # tau -> tau_id
         # helper-tau -> silent
         # NOTE: activities with the same label are assigned the same activity_id
-        # returns (net, im, fm, activity_to_id)
+        # returns (net, im, fm, activity_to_id, tau_ids)
         tree_pm4py = tree.to_pm4py(True)
         net, im, fm = pm4py.convert.convert_to_petri_net(tree_pm4py)
         activity_to_id = {}
@@ -41,11 +58,12 @@ class EbiOccurance(object):
                 t.label = activity_to_id[self._id_to_activity(tree, t.label)]
             else:
                 activity_to_id[self._id_to_activity(tree, t.label)] = t.label
-        return net, im, fm, activity_to_id
+        tau_ids = self._tau_leaf_ids(tree)
+        return net, im, fm, activity_to_id, tau_ids
 
     def write_tree_to_petri(self, tree:ProcessTree) -> Dict[str, str]:
         # returns a dict activity -> selected activity_id
-        net, im, fm, activity_to_id = self.build_petri_net(tree)
+        net, im, fm, activity_to_id, tau_ids = self.build_petri_net(tree)
         pm4py.write_pnml(net, im, fm, 'model.pnml')  # hardcoded relative path, see TODO.md
         return activity_to_id
 
