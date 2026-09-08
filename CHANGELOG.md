@@ -9,6 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Expanded test coverage for the previous `align_pn_all` fixes (loop cycle
+  guard, `TieExplosionError`, `__search` perf), targeting paths those
+  fixes' own tests didn't reach: `tests/test_probabilities_build_petri_net.py`
+  (the `build_petri_net` label-substitution fix, directly — two distinct
+  unmatched transition labels, e.g. `TAU_entry_`/`TAU_exit_` sentinels,
+  must stay distinct rather than being aliased through a shared key),
+  `tests/test_alignall_is_closed.py` (the perf fix's `closed` list→set
+  change preserves exact dedup semantics, tested in isolation from any
+  real search), `tests/test_alignall_tie_explosion.py` gained two more
+  tests for `LARGE_TIE_COUNT_THRESHOLD`'s warning path (previously only
+  the hard `MAX_TIE_COUNT` raise was tested), and
+  `tests/test_alignall_multiprocessing.py` (the `align_pn_all_multi` path
+  had zero coverage for any of the above).
+
+### Fixed
+- `set_max_tie_count`/`set_large_tie_count_threshold` had **no effect on
+  `align_pn_all_multi`**. They mutate a plain module global in the calling
+  process; each `ProcessPoolExecutor` worker (Windows' default `spawn`
+  start method) is a fresh interpreter that re-imports `alignall` and
+  gets the module's *default* `MAX_TIE_COUNT`/`LARGE_TIE_COUNT_THRESHOLD`,
+  never the caller's mutated value. Confirmed directly: a worker queried
+  right after `set_max_tie_count(1)` in the parent still reported 100,000.
+  `align_pn_all` (the non-multiprocessing function) was unaffected — this
+  was specific to `_multi`. Fixed by giving `align_pn_all`/
+  `align_pn_all_multi`/`align_pn_all_for_one`/`align_pn_one_for_one` (and
+  every function in between) explicit `max_tie_count`/
+  `large_tie_count_threshold` parameters, threaded all the way down to
+  `__search`; `align_pn_all_multi` resolves `get_max_tie_count()`/
+  `get_large_tie_count_threshold()` once in the parent process and passes
+  the concrete value to every worker, rather than relying on each
+  worker's own (unmodified) copy of the global. `None` (the default)
+  preserves prior behaviour — same-process callers still just read the
+  current global.
+- Fixing the above surfaced a second bug on the way: once
+  `TieExplosionError` could actually be raised inside a worker, pickling
+  it back across the `ProcessPoolExecutor` boundary failed with a
+  confusing, unrelated `TypeError` (`__init__() missing 1 required
+  positional argument: 'tie_count'`) — `Exception`'s default pickling
+  reconstructs via `type(self)(*self.args)`, and `self.args` was just
+  `(the formatted message,)` after `__init__`'s `super().__init__(message)`
+  call, not the `(partial_agns, tie_count, ceiling)` the constructor
+  actually needs. Fixed with an explicit `__reduce__`. `TieExplosionError`
+  also gained a `ceiling` field (the actual limit that was hit, which may
+  now differ from the module global via a per-call override) — its
+  message still reads `MAX_TIE_COUNT=...`, now sourced from `ceiling`
+  rather than the global directly.
+- Covered by `tests/test_alignall_multiprocessing.py` (now a real
+  assertion, not `expectedFailure`) and
+  `tests/test_alignall_tie_explosion.py` (a fast, isolated pickle
+  round-trip test, plus a per-call `max_tie_count` override test
+  independent of the global).
+
+### Added
 - `alignall.TieExplosionError`, with a configurable ceiling
   (`get_max_tie_count`/`set_max_tie_count`, default 100,000) and an
   earlier warning threshold (`get_large_tie_count_threshold`/
