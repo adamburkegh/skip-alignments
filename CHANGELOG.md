@@ -8,6 +8,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `alignall.TieExplosionError`, with a configurable ceiling
+  (`get_max_tie_count`/`set_max_tie_count`, default 100,000) and an
+  earlier warning threshold (`get_large_tie_count_threshold`/
+  `set_large_tie_count_threshold`, default 10,000): `align_pn_all`/
+  `align_pn_all_multi`'s classical A* search raises instead of continuing
+  to enumerate once accumulated tied optimal alignments for a single
+  variant exceed the ceiling. Mirrors `execution.py`'s
+  `ShuffleExplosionError`/`MAX_SHUFFLE_COUNT`/`LARGE_SHUFFLE_COUNT_THRESHOLD`
+  for the same underlying phenomenon on the other alignment path: a
+  classical Petri net has no notion of "these two moves are concurrent,
+  their order doesn't matter" the way the process-tree-native path's `And`
+  node does, so the search counts every interleaving of concurrent
+  branches as a genuinely distinct optimal alignment. Found via a
+  process-voids report on rtfm.xes: a 2-activity variant against a
+  heavily `And`/`Xor(Tau,_)`-nested discovered tree produced 4115+ tied
+  optimal alignments well before the per-trace timeout, with no feedback
+  and no way to bound or catch it — confirmed to be this and not the loop
+  cycle-guard above (`id_loop_list` was empty for that tree; no `Loop`
+  nodes at all). As with `MAX_SHUFFLE_COUNT`, there is no single correct
+  default ceiling — it trades off how many ties an experiment actually
+  needs (e.g. for a `|optimal alignments|` statistic) against how long a
+  single variant may run; tune via the setter.
+
+### Fixed
+- `align_pn_all`/`align_pn_all_multi`'s `__search` scaled far worse than
+  the number of tied optimal alignments should require, for two stacking
+  reasons, both pure implementation inefficiencies with zero effect on
+  output: `__reconstruct_alignment` rebuilt its alignment-so-far list via
+  repeated `[parent.t] + alignment` while walking from a state up to the
+  search root — O(depth) work per step, for O(depth) steps, so O(depth²)
+  for a single reconstruction, called at least once per popped state (and
+  more, since `all_optimal=True` keeps searching after the first
+  solution); and `closed` (the visited-state set) was a plain list, so
+  `is_closed`'s `search_tuple in closed` was an O(n) linear scan repeated
+  n times. Together these dominated real run time once tie counts reached
+  the thousands — exactly the process-voids rtfm.xes case above. Fixed by
+  building the alignment list via `append` while walking up and reversing
+  once at the end (O(depth) total), and by making `closed` a `set` of
+  hashable `(tuple(alignment), marking)` pairs (pm4py's `Transition` and
+  `Marking` are both hashable — id-based and frozenset-based respectively
+  — so this is an identical equality check, just O(1) average instead of
+  O(n)). Measured on a synthetic fixture (n independent concurrent
+  optional branches, n! tied optimal alignments): n=7 (5040 ties) went
+  from 43.0s to 1.4s, with an *identical* tie count before and after —
+  see `tests/test_alignall_search_performance.py` (fast regression test)
+  and `tests/perf_search_scaling.py` (full scaling numbers up to n=8,
+  40320 ties, too slow for the normal suite).
+
 ### Changed
 - Renamed `Aligner.align2` to `Aligner.align_normal_form`, to distinguish it
   from classical alignment (see `alignall.align_pn_all`/`align_pn_all_multi`)
@@ -16,11 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   move rather than one model move per missing leaf activity. `align2` is
   kept as a backward-compatible alias (`PendingDeprecationWarning`, not
   removed) for collaborators still depending on an ancestor project's API.
-- `EbiOccurance.build_petri_net` now returns a 5-tuple
-  (`net, im, fm, activity_to_id, tau_ids`), adding `tau_ids`: the set of
-  transition labels that are genuine `Tau` leaves. **Breaking** for any
-  direct caller of `build_petri_net` (not `write_tree_to_petri`, whose own
-  return contract is unchanged).
+- `EbiOccurance.build_petri_net` now returns a 6-tuple
+  (`net, im, fm, activity_to_id, tau_ids, id_loop_list`), adding `tau_ids`
+  (the set of transition labels that are genuine `Tau` leaves) and
+  `id_loop_list` (loops needing a cycle guard, from `insert_cycle_checks` —
+  see below). **Breaking** for any direct caller of `build_petri_net` (not
+  `write_tree_to_petri`, whose own return contract is unchanged).
 
 ### Fixed
 - `align_pn_all`/`align_pn_all_multi`/`align_pn_all_for_one`/
@@ -40,6 +90,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   optional `tau_ids` parameter to price those transitions at 0; omitting
   it preserves the old (mispriced) behaviour for hand-built nets that use
   `to_pm4py(use_ids=False)`'s `"TAU_"`-prefix convention instead.
+- `align_pn_all`/`align_pn_all_multi` (classical alignment) never actually
+  bounded the A* search on a loop that can execute entirely for free (both
+  its do- and some redo-child allow a zero-cost path) — the existing
+  `insert_cycle_checks`/`id_loop_list` cycle guard was never wired into
+  `build_petri_net`, so `id_loop_list` was always empty. Even passing one
+  in by hand wouldn't have helped: `does_allow_tau_path`
+  (`ProcessTree.from_pm4py`) and `is_cycling_exec`'s do/redo tau-tracking
+  both string-sniff a `"TAU_"` label prefix, the same
+  `to_pm4py(use_ids=False)`-only convention behind the cost bug above — so
+  on an ids-labelled net (`build_petri_net`'s only output), no loop was
+  ever recognized as needing a guard, and no tau'd execution inside one
+  was ever recognized as such during search. The result: a trace whose
+  optimal alignment goes through such a loop has infinitely many
+  equal-cost ties, and the search just burns the full per-trace timeout
+  instead of cutting the tie off. Found via a process-voids report on a
+  real 104k-case log (rtfm.xes): 42 of 48 trace variants clustered at the
+  ~100s per-variant timeout regardless of variant size or weight — ~74 of
+  a 76-minute run spent inside `align_pn_all`. Fixed by threading the same
+  `tau_ids` through `ProcessTree.from_pm4py`/`does_allow_tau_path`/
+  `insert_cycle_checks` (so the right loops get a guard inserted) and
+  through `is_cycling`/`is_cycling_exec` (so a tau'd do/redo execution is
+  recognized during search), and by having `build_petri_net` call
+  `insert_cycle_checks` and return its `id_loop_list`. Also fixed a latent,
+  previously-harmless bug this surfaced in `build_petri_net`'s label
+  substitution loop: every transition label with no match in the original
+  tree (pm4py's own invisible transitions, and now `insert_cycle_checks`'
+  `"TAU_entry_"`/`"TAU_exit_"` sentinels too) was aliased through the same
+  `None` dict key, silently collapsing distinct sentinel labels into
+  whichever one was seen first — harmless while `None` was the only such
+  label, not once there are others.
 
 ## [0.2.1] - 2026-09-05
 

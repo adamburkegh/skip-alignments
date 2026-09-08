@@ -59,10 +59,88 @@ from pm4py.util import typing
 This file boxes all algorithms to compute alignments (PM4py) and skip alignments.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Above this many accumulated tied optimal alignments for a single
+# variant, __search's all_optimal enumeration logs a warning instead of
+# continuing silently -- the classical-alignment-path counterpart to
+# execution.py's LARGE_SHUFFLE_COUNT_THRESHOLD/MAX_SHUFFLE_COUNT, for the
+# same underlying phenomenon (concurrent branches multiplying the number
+# of order-distinct alignments that all represent the same underlying
+# execution) surfacing here instead: a classical Petri net has no notion
+# of "these two moves are concurrent, their relative order doesn't
+# matter" the way the process-tree-native path's And node does, so
+# state_equation_a_star's search counts every interleaving of concurrent
+# branches as a genuinely distinct optimal alignment. Found via a
+# process-voids report on rtfm.xes: a 2-activity variant against a
+# heavily And/Xor(Tau,_)-nested discovered tree produced 4115+ tied
+# optimal alignments well before the per-trace timeout was reached, with
+# no feedback and no way to bound or catch it.
+LARGE_TIE_COUNT_THRESHOLD = 10_000
+
+# Hard stop: above this many accumulated tied optimal alignments, raise
+# TieExplosionError instead of continuing to enumerate. Above
+# LARGE_TIE_COUNT_THRESHOLD but below this: still attempted, just warned
+# about.
+MAX_TIE_COUNT = 100_000
+
+
+def get_large_tie_count_threshold() -> int:
+    return LARGE_TIE_COUNT_THRESHOLD
+
+
+def set_large_tie_count_threshold(n: int) -> None:
+    """Above this many accumulated tied optimal alignments, __search's
+    all_optimal enumeration logs a warning instead of proceeding silently.
+    Takes effect immediately for every subsequent call -- this is
+    process-wide configuration, not per-call context, so there's nothing
+    to thread through call signatures."""
+    global LARGE_TIE_COUNT_THRESHOLD
+    if n <= 0:
+        raise ValueError(f"LARGE_TIE_COUNT_THRESHOLD must be positive, got {n}")
+    LARGE_TIE_COUNT_THRESHOLD = n
+
+
+def get_max_tie_count() -> int:
+    return MAX_TIE_COUNT
+
+
+def set_max_tie_count(n: int) -> None:
+    """Above this many accumulated tied optimal alignments, __search's
+    all_optimal enumeration raises TieExplosionError instead of continuing.
+    Takes effect immediately for every subsequent call -- see
+    set_large_tie_count_threshold. The right ceiling is a per-experiment
+    tradeoff (how many ties are actually needed, e.g. for a |optimal
+    alignments| statistic, vs. how long a single variant may run) -- there
+    is no single correct default, tune it for your own use."""
+    global MAX_TIE_COUNT
+    if n <= 0:
+        raise ValueError(f"MAX_TIE_COUNT must be positive, got {n}")
+    MAX_TIE_COUNT = n
+
+
+class TieExplosionError(Exception):
+    """
+    Raised instead of continuing to enumerate when __search's all_optimal
+    accumulation exceeds MAX_TIE_COUNT tied optimal alignments for a
+    single trace/variant. Carries what was accumulated so far, so a caller
+    can log or report which variant triggered it, treat the partial result
+    as incomplete, or retry with a higher cap via set_max_tie_count.
+    """
+    def __init__(self, partial_agns, tie_count: int):
+        self.partial_agns = partial_agns
+        self.tie_count = tie_count
+        super().__init__(
+            f"__search: accumulated {tie_count} tied optimal alignments, "
+            f"exceeding MAX_TIE_COUNT={MAX_TIE_COUNT}"
+        )
+
 ############ PM4py like algorithm ############
 # Modified to compute all optimal alignments #
 ##############################################
-def apply_multiprocessing(log, petri_net, initial_marking, final_marking, id_loop_list, parameters=None, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.DEFAULT_VARIANT, tree=None):
+def apply_multiprocessing(log, petri_net, initial_marking, final_marking, id_loop_list, parameters=None, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.DEFAULT_VARIANT, tree=None, tau_ids=None):
     if parameters is None:
         parameters = {}
 
@@ -89,7 +167,7 @@ def apply_multiprocessing(log, petri_net, initial_marking, final_marking, id_loo
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
         futures = []
         for i, trace in enumerate(one_tr_per_var):
-            futures.append(executor.submit(apply_trace, trace, petri_net, initial_marking, final_marking, id_loop_list, tree.get_cheapest_execution(0)[0]+len(variant_strings[i])*100000+0.1, parameters, str(variant)))
+            futures.append(executor.submit(apply_trace, trace, petri_net, initial_marking, final_marking, id_loop_list, tree.get_cheapest_execution(0)[0]+len(variant_strings[i])*100000+0.1, parameters, str(variant), tau_ids=tau_ids))
         progress = pm4py.algo.conformance.alignments.petri_net.algorithm.__get_progress_bar(len(one_tr_per_var), parameters)
         if progress is not None:
             alignments_ready = 0
@@ -110,7 +188,7 @@ def apply_multiprocessing(log, petri_net, initial_marking, final_marking, id_loo
     return all_alignments
 
 def apply_trace(trace, petri_net, initial_marking, final_marking, id_loop_list, cost_bound=10**8, parameters=None,
-                variant=pm4py.algo.conformance.alignments.petri_net.algorithm.DEFAULT_VARIANT, all=True):
+                variant=pm4py.algo.conformance.alignments.petri_net.algorithm.DEFAULT_VARIANT, all=True, tau_ids=None):
     time_start = time.process_time_ns()
     if parameters is None:
         parameters = copy({PARAMETER_CONSTANT_ACTIVITY_KEY: DEFAULT_NAME_KEY})
@@ -121,7 +199,7 @@ def apply_trace(trace, petri_net, initial_marking, final_marking, id_loop_list, 
     enable_best_worst_cost = exec_utils.get_param_value(pm4py.algo.conformance.alignments.petri_net.algorithm.Parameters.ENABLE_BEST_WORST_COST, parameters, True)
 
     ali = apply(trace, petri_net, initial_marking, final_marking, id_loop_list, cost_bound,
-                                                 parameters=parameters, all=all)
+                                                 parameters=parameters, all=all, tau_ids=tau_ids)
 
     trace_cost_function = exec_utils.get_param_value(pm4py.algo.conformance.alignments.petri_net.algorithm.Parameters.PARAM_TRACE_COST_FUNCTION, parameters, [])
 
@@ -130,7 +208,7 @@ def apply_trace(trace, petri_net, initial_marking, final_marking, id_loop_list, 
     
     return time_end, ali
 
-def apply_log(log, petri_net, initial_marking, final_marking, id_loop_list, cost_bound, parameters=None, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.DEFAULT_VARIANT, all=True):
+def apply_log(log, petri_net, initial_marking, final_marking, id_loop_list, cost_bound, parameters=None, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.DEFAULT_VARIANT, all=True, tau_ids=None):
     if parameters is None:
         parameters = dict()
 
@@ -160,7 +238,7 @@ def apply_log(log, petri_net, initial_marking, final_marking, id_loop_list, cost
         this_max_align_time = min(max_align_time_case, (max_align_time - (time.time() - start_time)) * 0.5)
         parameters[pm4py.algo.conformance.alignments.petri_net.algorithm.Parameters.PARAM_MAX_ALIGN_TIME_TRACE] = this_max_align_time
         all_alignments.append(apply_trace(trace, petri_net, initial_marking, final_marking, id_loop_list, cost_bound, parameters=copy(parameters),
-                                          variant=variant, all=all))
+                                          variant=variant, all=all, tau_ids=tau_ids))
         if progress is not None:
             progress.update()
 
@@ -169,7 +247,7 @@ def apply_log(log, petri_net, initial_marking, final_marking, id_loop_list, cost
 
     return all_alignments
 
-def apply(trace: Trace, petri_net: PetriNet, initial_marking: Marking, final_marking: Marking, id_loop_list, cost_bound, parameters: Optional[Dict[Union[str, pm4py.algo.conformance.alignments.petri_net.variants.state_equation_a_star.Parameters], Any]] = None, all=True) -> typing.AlignmentResult:
+def apply(trace: Trace, petri_net: PetriNet, initial_marking: Marking, final_marking: Marking, id_loop_list, cost_bound, parameters: Optional[Dict[Union[str, pm4py.algo.conformance.alignments.petri_net.variants.state_equation_a_star.Parameters], Any]] = None, all=True, tau_ids=None) -> typing.AlignmentResult:
     if parameters is None:
         parameters = {}
 
@@ -209,11 +287,11 @@ def apply(trace: Trace, petri_net: PetriNet, initial_marking: Marking, final_mar
                                                                                      trace_cost_function,
                                                                                      activity_key=activity_key)
 
-    alignment = apply_trace_net(petri_net, initial_marking, final_marking, trace_net, trace_im, trace_fm, id_loop_list, cost_bound, parameters, all=all)
+    alignment = apply_trace_net(petri_net, initial_marking, final_marking, trace_net, trace_im, trace_fm, id_loop_list, cost_bound, parameters, all=all, tau_ids=tau_ids)
 
     return alignment
 
-def apply_trace_net(petri_net, initial_marking, final_marking, trace_net, trace_im, trace_fm, id_loop_list, cost_bound, parameters=None, all=True):
+def apply_trace_net(petri_net, initial_marking, final_marking, trace_net, trace_im, trace_fm, id_loop_list, cost_bound, parameters=None, all=True, tau_ids=None):
     if parameters is None:
         parameters = {}
 
@@ -248,7 +326,7 @@ def apply_trace_net(petri_net, initial_marking, final_marking, trace_net, trace_
 
     alignment = apply_sync_prod(sync_prod, sync_initial_marking, sync_final_marking, cost_function,
                            utils.SKIP, id_loop_list, cost_bound, ret_tuple_as_trans_desc=ret_tuple_as_trans_desc,
-                           max_align_time_trace=max_align_time_trace, all=all)
+                           max_align_time_trace=max_align_time_trace, all=all, tau_ids=tau_ids)
 
     return_sync_cost = exec_utils.get_param_value(pm4py.algo.conformance.alignments.petri_net.variants.state_equation_a_star.Parameters.RETURN_SYNC_COST_FUNCTION, parameters, False)
     if return_sync_cost:
@@ -258,21 +336,28 @@ def apply_trace_net(petri_net, initial_marking, final_marking, trace_net, trace_
     return alignment
 
 def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, skip, id_loop_list, cost_bound, ret_tuple_as_trans_desc=False,
-                    max_align_time_trace=sys.maxsize, all=True):
+                    max_align_time_trace=sys.maxsize, all=True, tau_ids=None):
     return __search(sync_prod, initial_marking, final_marking, cost_function, skip, id_loop_list, cost_bound,
-                    ret_tuple_as_trans_desc=ret_tuple_as_trans_desc, max_align_time_trace=max_align_time_trace, all=all)
+                    ret_tuple_as_trans_desc=ret_tuple_as_trans_desc, max_align_time_trace=max_align_time_trace, all=all, tau_ids=tau_ids)
 
-def is_closed(state:utils.SearchTuple, closed:List, ret_tuple_as_trans_desc:bool):
+def is_closed(state:utils.SearchTuple, closed:Set, ret_tuple_as_trans_desc:bool):
     agn = __reconstruct_alignment(state, 0, 0, 0,
                                                      ret_tuple_as_trans_desc=ret_tuple_as_trans_desc,
                                                      lp_solved=0)
-    search_tuple = (agn["alignment"], state.m)
+    # tuple(...) rather than the raw list: hashable, so `closed` can be a
+    # set (O(1) average membership) instead of a list (O(n) linear scan) --
+    # equality is identical either way, since both list.__eq__ and
+    # tuple.__eq__ compare elementwise, and pm4py's Transition.__eq__/
+    # __hash__ are both id()-based (see obj.py), so this changes nothing
+    # about which states are considered already-closed, only how fast the
+    # check is. See __reconstruct_alignment's own note above.
+    search_tuple = (tuple(agn["alignment"]), state.m)
     return search_tuple in closed
 
-def does_allow_tau_path(process_tree:pm4py.objects.process_tree.obj.ProcessTree):
+def does_allow_tau_path(process_tree:pm4py.objects.process_tree.obj.ProcessTree, tau_ids:Optional[set]=None):
     cond1 = False
     cond2 = False
-    tree = ProcessTree.from_pm4py(process_tree, 100000, 0, 0)
+    tree = ProcessTree.from_pm4py(process_tree, 100000, 0, 0, tau_ids=tau_ids)
     assert isinstance(tree, Loop)
     if tree.children[0].get_cheapest_execution(0)[1]:
         # allows for a tau path
@@ -283,16 +368,22 @@ def does_allow_tau_path(process_tree:pm4py.objects.process_tree.obj.ProcessTree)
             cond2 = True
     return cond1 and cond2
 
-def insert_cycle_checks(process_tree:pm4py.objects.process_tree.obj.ProcessTree, id="1"):
+def insert_cycle_checks(process_tree:pm4py.objects.process_tree.obj.ProcessTree, id="1", tau_ids:Optional[set]=None):
     """
     Method needed to ensure that all computed alignments are free from cycles. The process model is modified for loops that allow tau-loops.
+
+    tau_ids: Optional set of leaf labels that are genuine Tau leaves,
+        needed (via does_allow_tau_path/ProcessTree.from_pm4py) to
+        recognize a tau-escapable loop correctly when process_tree was
+        produced with to_pm4py(use_ids=True), e.g.
+        EbiOccurance.build_petri_net.
     """
     if process_tree.operator is None:
         return [], process_tree
-    if process_tree.operator != pm4py.objects.process_tree.obj.Operator.LOOP or not does_allow_tau_path(process_tree):
+    if process_tree.operator != pm4py.objects.process_tree.obj.Operator.LOOP or not does_allow_tau_path(process_tree, tau_ids=tau_ids):
         res = []
         for i, c in enumerate(process_tree.children):
-            res += insert_cycle_checks(c, id+str(i))[0]
+            res += insert_cycle_checks(c, id+str(i), tau_ids=tau_ids)[0]
         return res, process_tree
     parent = process_tree.parent
     entry = pm4py.objects.process_tree.obj.ProcessTree(None, None, None, "TAU_entry_"+id)
@@ -307,20 +398,27 @@ def insert_cycle_checks(process_tree:pm4py.objects.process_tree.obj.ProcessTree,
     process_tree.parent = sequence
     res = []
     for i, c in enumerate(process_tree.children):
-        res += insert_cycle_checks(c, id+str(i))[0]
+        res += insert_cycle_checks(c, id+str(i), tau_ids=tau_ids)[0]
     return [(id, process_tree)] + res, process_tree if parent is not None else sequence
 
-def is_cycling(state:utils.SearchTuple, ret_tuple_as_trans_desc:bool, id_tree_list:List):
+def _is_tau_label(label, tau_ids:Optional[set]):
+    # a label is a genuine tau either under to_pm4py(use_ids=False)'s
+    # "TAU_"-prefix convention, or (when tau_ids is given, e.g. a net
+    # built with to_pm4py(use_ids=True)) by direct membership in the
+    # tree's own Tau-leaf ids.
+    return label is None or (isinstance(label, str) and label.startswith("TAU_")) or (tau_ids is not None and label in tau_ids)
+
+def is_cycling(state:utils.SearchTuple, ret_tuple_as_trans_desc:bool, id_tree_list:List, tau_ids:Optional[set]=None):
     agn = __reconstruct_alignment(state, 0, 0, 0,
                                                      ret_tuple_as_trans_desc=ret_tuple_as_trans_desc,
                                                      lp_solved=0)
     agn['alignment'] = [a.label for a in agn['alignment'] if a.label[1] is not None]
     for id, loop in id_tree_list:
-        if is_cycling_exec(agn['alignment'], loop, id):
+        if is_cycling_exec(agn['alignment'], loop, id, tau_ids=tau_ids):
             return True
     return False
 
-def is_cycling_exec(agn:List, loop:pm4py.objects.process_tree.obj.ProcessTree, id:str):
+def is_cycling_exec(agn:List, loop:pm4py.objects.process_tree.obj.ProcessTree, id:str, tau_ids:Optional[set]=None):
     do_leafs = get_leafs(loop.children[0])
     redo_leafs = []
     for c in loop.children[1:]:
@@ -349,28 +447,28 @@ def is_cycling_exec(agn:List, loop:pm4py.objects.process_tree.obj.ProcessTree, i
             if m in do_leafs:
                 if current is None:
                     current = "do"
-                    current_tau = m.startswith("TAU_")
+                    current_tau = _is_tau_label(m, tau_ids)
                     executions_tau.append(False)
                 elif current == "redo":
                     # finish up the redo
                     executions_tau[-1] = current_tau
                     current = "do"
-                    current_tau = m.startswith("TAU_")
+                    current_tau = _is_tau_label(m, tau_ids)
                     executions_tau.append(False)
                 else:
                     # continuation of a do
-                    if not m.startswith("TAU_"):
+                    if not _is_tau_label(m, tau_ids):
                         current_tau = False
             elif m in redo_leafs:
                 if current == "do":
                     # finish up the do
                     executions_tau[-1] = current_tau
                     current = "redo"
-                    current_tau = m.startswith("TAU_")
+                    current_tau = _is_tau_label(m, tau_ids)
                     executions_tau.append(False)
                 else:
                     # continuation of a redo
-                    if not m.startswith("TAU_"):
+                    if not _is_tau_label(m, tau_ids):
                         current_tau = False
 
         if len(executions_tau) > 0:
@@ -396,7 +494,7 @@ def get_leafs(process_tree:pm4py.objects.process_tree.obj.ProcessTree):
     return res
 
 def __search(sync_net, ini, fin, cost_function, skip, id_loop_list, cost_bound, ret_tuple_as_trans_desc=False,
-             max_align_time_trace=sys.maxsize, all=True):
+             max_align_time_trace=sys.maxsize, all=True, tau_ids=None):
     """
     Performs A* search for (all) optimal alignments.
     """
@@ -413,7 +511,7 @@ def __search(sync_net, ini, fin, cost_function, skip, id_loop_list, cost_bound, 
     incidence_matrix = inc_mat_construct(sync_net)
     ini_vec, fin_vec, cost_vec = utils.__vectorize_initial_final_cost(incidence_matrix, ini, fin, cost_function)
 
-    closed = list()
+    closed = set()
 
     a_matrix = np.asmatrix(incidence_matrix.a_matrix).astype(np.float64)
     g_matrix = -np.eye(len(sync_net.transitions))
@@ -500,6 +598,12 @@ def __search(sync_net, ini, fin, cost_function, skip, id_loop_list, cost_bound, 
                     opt_cost = agn['cost']
                     opt_agns.append(agn)
 
+                    if len(opt_agns) > MAX_TIE_COUNT:
+                        raise TieExplosionError(opt_agns, len(opt_agns))
+                    elif len(opt_agns) == LARGE_TIE_COUNT_THRESHOLD:
+                        logger.warning("__search: accumulated %d tied optimal alignments (large), still enumerating",
+                                       len(opt_agns))
+
                     if len(opt_agns) == 1:
                         time_for_first_alignment = time.process_time_ns()-first_time
                     if not all:
@@ -509,9 +613,9 @@ def __search(sync_net, ini, fin, cost_function, skip, id_loop_list, cost_bound, 
                 else:
                     return reset_results(opt_agns), reset_time(opt_agns, 0), time_for_first_alignment
                 
-        closed.append((__reconstruct_alignment(curr, visited, queued, traversed,
+        closed.add((tuple(__reconstruct_alignment(curr, visited, queued, traversed,
                                                      ret_tuple_as_trans_desc=ret_tuple_as_trans_desc,
-                                                     lp_solved=lp_solved)['alignment'], curr.m))
+                                                     lp_solved=lp_solved)['alignment']), curr.m))
         visited += 1
 
         enabled_trans = copy(trans_empty_preset)
@@ -534,7 +638,7 @@ def __search(sync_net, ini, fin, cost_function, skip, id_loop_list, cost_bound, 
             new_f = g + h
 
             tp = utils.SearchTuple(new_f, g, h, new_marking, curr, t, x, trustable)
-            if not g > opt_cost and not new_f > cost_bound and not is_closed(tp, closed, ret_tuple_as_trans_desc) and not is_cycling(tp, ret_tuple_as_trans_desc, id_loop_list):
+            if not g > opt_cost and not new_f > cost_bound and not is_closed(tp, closed, ret_tuple_as_trans_desc) and not is_cycling(tp, ret_tuple_as_trans_desc, id_loop_list, tau_ids=tau_ids):
                 heapq.heappush(open_set, tp)
     return reset_results(opt_agns), reset_time(opt_agns, 0), time_for_first_alignment
 
@@ -555,19 +659,25 @@ def reset_time(agns, timing):
     return timing
 
 def __reconstruct_alignment(state, visited, queued, traversed, ret_tuple_as_trans_desc=False, lp_solved=0):
+    # Builds the path from state up to the root by appending (O(1) each)
+    # while walking up, then reversing once at the end -- O(depth) total.
+    # The previous `alignment = [parent.t] + alignment` pattern rebuilt
+    # and copied the entire list-so-far on every step of the walk, making
+    # a single reconstruction O(depth^2); called at least once per popped
+    # state (more when all_optimal=True keeps searching after the first
+    # solution), this dominated real run time once tie counts reached the
+    # thousands (see CHANGELOG.md and tests/test_alignall_tie_explosion.py).
+    # ret_tuple_as_trans_desc previously selected between two branches that
+    # built the identical result the identical way; kept as an accepted
+    # parameter for callers, unused internally now that duplication is gone.
     alignment = list()
     if state.p is not None and state.t is not None:
+        alignment.append(state.t)
         parent = state.p
-        if ret_tuple_as_trans_desc:
-            alignment = [state.t]
-            while parent.p is not None:
-                alignment = [parent.t] + alignment
-                parent = parent.p
-        else:
-            alignment = [state.t]
-            while parent.p is not None:
-                alignment = [parent.t] + alignment
-                parent = parent.p
+        while parent.p is not None:
+            alignment.append(parent.t)
+            parent = parent.p
+        alignment.reverse()
     return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
             'traversed_arcs': traversed, 'lp_solved': lp_solved}
 
@@ -621,7 +731,7 @@ def align_pn_all(var:List[str], net, init, final, id_loop_list, cost_bound=10**8
     var_df = pd.DataFrame({'case:concept:name': '1', 'concept:name': var, 'time:timestamp': [pd.Timestamp(year=1000+i, month=1, day=1) for i, _ in enumerate(var)]})
     #var_df = log[log['case:concept:name'] == 'A100']
     #agn = apply_trace(var_df, net, init, final, [], parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR)
-    return apply_log(var_df, net, init, final, id_loop_list, cost_bound, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR)
+    return apply_log(var_df, net, init, final, id_loop_list, cost_bound, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR, tau_ids=tau_ids)
 
 def align_pn_all_multi(log, net, init, final, id_loop_list, tree=None, timeout=100, tau_ids=None):
     """
@@ -649,7 +759,7 @@ def align_pn_all_multi(log, net, init, final, id_loop_list, tree=None, timeout=1
         pm4py.algo.conformance.alignments.petri_net.variants.state_equation_a_star.Parameters.PARAM_MAX_ALIGN_TIME_TRACE: timeout,
         'cores': 14
     }
-    return apply_multiprocessing(log, net, init, final, id_loop_list, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR, tree=tree)
+    return apply_multiprocessing(log, net, init, final, id_loop_list, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR, tree=tree, tau_ids=tau_ids)
 
 def align_pn_all_for_one(var:List[str], net, init, final, id_loop_list, cost_bound=10**8, timeout=100, tau_ids=None):
     """
@@ -678,7 +788,7 @@ def align_pn_all_for_one(var:List[str], net, init, final, id_loop_list, cost_bou
     var_df = pd.DataFrame({'case:concept:name': '1', 'concept:name': var, 'time:timestamp': [pd.Timestamp(year=1000+i, month=1, day=1) for i, _ in enumerate(var)]})
     time_start = time.process_time_ns()
     for _ in range(200):
-        apply_log(var_df, net, init, final, id_loop_list, cost_bound, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR)
+        apply_log(var_df, net, init, final, id_loop_list, cost_bound, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR, tau_ids=tau_ids)
     return (time.process_time_ns()-time_start)/200
 
 def align_pn_one_for_one(var:List[str], net, init, final, id_loop_list, cost_bound=10**8, timeout=100, cnt=2000, tau_ids=None):
@@ -709,7 +819,7 @@ def align_pn_one_for_one(var:List[str], net, init, final, id_loop_list, cost_bou
     var_df = pd.DataFrame({'case:concept:name': '1', 'concept:name': var, 'time:timestamp': [pd.Timestamp(year=1000+i, month=1, day=1) for i, _ in enumerate(var)]})
     time_start = time.process_time_ns()
     for _ in range(cnt):
-        apply_log(var_df, net, init, final, id_loop_list, cost_bound, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR, all=False)
+        apply_log(var_df, net, init, final, id_loop_list, cost_bound, parameters=param, variant=pm4py.algo.conformance.alignments.petri_net.algorithm.Variants.VERSION_STATE_EQUATION_A_STAR, all=False, tau_ids=tau_ids)
     return (time.process_time_ns()-time_start)/cnt
 
 def align_sk_all_for_one(tree:ProcessTree, var:List[str], timeout=100, cnt=2000):

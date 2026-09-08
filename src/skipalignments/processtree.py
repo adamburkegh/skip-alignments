@@ -27,11 +27,24 @@ class ProcessTree(object):
         self.parent = parent
 
     @staticmethod
-    def from_pm4py(process_tree:pm4py.objects.process_tree.obj.ProcessTree, model_move_activity_cost:int, model_move_tau_cost:int, sync_move_cost:int, id:str="0"):
+    def from_pm4py(process_tree:pm4py.objects.process_tree.obj.ProcessTree, model_move_activity_cost:int, model_move_tau_cost:int, sync_move_cost:int, id:str="0", tau_ids:Optional[set]=None):
         """
         Creates a process tree from a pm4py ProcessTree object.
+
+        tau_ids: Optional set of leaf labels that are genuine Tau leaves.
+            Needed to recognize a Tau leaf correctly when process_tree was
+            produced with to_pm4py(use_ids=True) (e.g.
+            EbiOccurance.build_petri_net), whose labels are opaque tree
+            ids rather than the "TAU_"-prefixed names
+            to_pm4py(use_ids=False) produces. Without it, a Tau leaf on
+            such a tree is silently misclassified as an Activity.
         """
-        if process_tree.operator is None and (process_tree.label is None or process_tree.label.startswith("TAU_")):
+        is_tau = process_tree.operator is None and (
+            process_tree.label is None
+            or process_tree.label.startswith("TAU_")
+            or (tau_ids is not None and process_tree.label in tau_ids)
+        )
+        if is_tau:
             # tau
             node = Tau(None, "TAU", model_move_tau_cost)
             node.id = "TAU_"+id
@@ -44,7 +57,7 @@ class ProcessTree(object):
             node.sync_move_cost = sync_move_cost
             return node
         # operator
-        children = [ProcessTree.from_pm4py(c, model_move_activity_cost, model_move_tau_cost, sync_move_cost, id + str(i)) for i, c in enumerate(process_tree.children)]
+        children = [ProcessTree.from_pm4py(c, model_move_activity_cost, model_move_tau_cost, sync_move_cost, id + str(i), tau_ids=tau_ids) for i, c in enumerate(process_tree.children)]
         if process_tree.operator == pm4py.objects.process_tree.obj.Operator.SEQUENCE:
             node = Sequence(None, children)
         elif process_tree.operator == pm4py.objects.process_tree.obj.Operator.XOR:

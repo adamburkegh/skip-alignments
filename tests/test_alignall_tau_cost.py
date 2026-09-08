@@ -53,7 +53,7 @@ class TestAlignPnAllTauLeafCost(unittest.TestCase):
 
     def test_choosing_the_models_own_tau_branch_costs_zero(self):
         tree = _tree_with_tau_branch()
-        net, im, fm, activity_to_id, tau_ids = EbiOccurance().build_petri_net(tree)
+        net, im, fm, activity_to_id, tau_ids, id_loop_list = EbiOccurance().build_petri_net(tree)
 
         result = align_pn_all([activity_to_id['s']], net, im, fm, [], timeout=30, tau_ids=tau_ids)
         _, (opt_agns, timed_out, _) = result[0]
@@ -72,7 +72,7 @@ class TestAlignPnAllTauLeafCost(unittest.TestCase):
         # build_petri_net's opaque ids) keeps getting the original
         # string-sniffing behaviour, unchanged.
         tree = _tree_with_tau_branch()
-        net, im, fm, activity_to_id, _tau_ids = EbiOccurance().build_petri_net(tree)
+        net, im, fm, activity_to_id, _tau_ids, _id_loop_list = EbiOccurance().build_petri_net(tree)
 
         result = align_pn_all([activity_to_id['s']], net, im, fm, [], timeout=30)
         _, (opt_agns, timed_out, _) = result[0]

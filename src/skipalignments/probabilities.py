@@ -1,4 +1,5 @@
 from typing import Dict, List
+from skipalignments.alignall import insert_cycle_checks
 from skipalignments.processtree import *
 from skipalignments.alignment import *
 from skipalignments.skips import Skipper
@@ -48,22 +49,44 @@ class EbiOccurance(object):
         # tau -> tau_id
         # helper-tau -> silent
         # NOTE: activities with the same label are assigned the same activity_id
-        # returns (net, im, fm, activity_to_id, tau_ids)
+        # returns (net, im, fm, activity_to_id, tau_ids, id_loop_list)
+        tau_ids = self._tau_leaf_ids(tree)
         tree_pm4py = tree.to_pm4py(True)
+        # insert_cycle_checks needs tau_ids itself (via does_allow_tau_path/
+        # ProcessTree.from_pm4py) to recognize which loops can execute
+        # fully for free on this use_ids=True tree -- without it, every
+        # Tau leaf here looks like a real Activity, so a loop that can
+        # genuinely cycle for free at zero cost is never wrapped with a
+        # guard, and align_pn_all's A* search has no way to bound the
+        # resulting tie of infinitely many zero-cost alignments (it just
+        # burns the full per-trace timeout instead). See CHANGELOG.md and
+        # tests/test_alignall_cycle_guard.py.
+        id_loop_list, tree_pm4py = insert_cycle_checks(tree_pm4py, tau_ids=tau_ids)
         net, im, fm = pm4py.convert.convert_to_petri_net(tree_pm4py)
         activity_to_id = {}
         for t in net.transitions:
-            # t.label is the id
-            if self._id_to_activity(tree, t.label) in activity_to_id:
-                t.label = activity_to_id[self._id_to_activity(tree, t.label)]
+            # t.label is the id. A label with no match in the original
+            # tree (None for pm4py's own invisible routing transitions,
+            # or one of insert_cycle_checks' synthetic "TAU_entry_"/
+            # "TAU_exit_" sentinels) has nothing to alias to another
+            # transition's label -- leave it as-is. Aliasing it via the
+            # same None key every unmatched label used to share was a
+            # latent bug (harmless only by coincidence, when every
+            # unmatched label really was None; the sentinels introduced
+            # by insert_cycle_checks are the first non-None labels than
+            # can collide there).
+            activity = self._id_to_activity(tree, t.label)
+            if activity is None:
+                continue
+            if activity in activity_to_id:
+                t.label = activity_to_id[activity]
             else:
-                activity_to_id[self._id_to_activity(tree, t.label)] = t.label
-        tau_ids = self._tau_leaf_ids(tree)
-        return net, im, fm, activity_to_id, tau_ids
+                activity_to_id[activity] = t.label
+        return net, im, fm, activity_to_id, tau_ids, id_loop_list
 
     def write_tree_to_petri(self, tree:ProcessTree) -> Dict[str, str]:
         # returns a dict activity -> selected activity_id
-        net, im, fm, activity_to_id, tau_ids = self.build_petri_net(tree)
+        net, im, fm, activity_to_id, tau_ids, id_loop_list = self.build_petri_net(tree)
         pm4py.write_pnml(net, im, fm, 'model.pnml')  # hardcoded relative path, see TODO.md
         return activity_to_id
 
