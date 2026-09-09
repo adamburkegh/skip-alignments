@@ -812,7 +812,15 @@ class State(object):
                 path_after = new_state.path[i+1:]
                 new_state.path = path_before + [('>>', act) for act in path[0][0]] + path_after
                 for j in range(len(new_state.executions)):
-                    if new_state.executions[j].start < i and new_state.executions[j].stop > i:
+                    # start <= i (not strict <): an execution whose span
+                    # starts exactly at the skip being unfolded still has
+                    # that skip as its own first slot, not something
+                    # before it -- it must have its .stop extended too,
+                    # or it's left with stale (too-narrow) bounds the
+                    # moment the replacement's length differs from the
+                    # original 1-slot skip. See CHANGELOG.md and
+                    # tests/test_alignment_unfold_execution_bounds.py.
+                    if new_state.executions[j].start <= i and new_state.executions[j].stop > i:
                         #print("Updating", new_state.executions[j], "on end by", len(path[0][0]))
                         new_state.executions[j].stop += len(path[0][0])-1
                     elif new_state.executions[j].start > i:

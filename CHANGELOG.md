@@ -8,6 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `State.unfold()` (`alignment.py`) left a stale, too-narrow `.stop` bound
+  on any recorded `Execution` whose span started at *exactly* the
+  position of the `Skip`/`TauPath` move being unfolded — the boundary
+  check was `start < i and stop > i` (strict `<`), so `start == i` (the
+  skip is that execution's own first slot, not something before it)
+  matched neither this branch nor the `start > i` branch, and its `.stop`
+  was never extended. Harmless when the replacement happened to be the
+  same length as the original 1-slot skip (`len(path[0][0])-1 == 0`, a
+  no-op either way); as soon as a tied alignment's replacement had a
+  different length, the stale bound made `execution.py`'s
+  `build_execution_tree` unable to find that execution's own children
+  within its (falsely narrow) span, raising a bare
+  `assert tree_c is not None`. Found via a process-voids report: real
+  rtfm.xes traces (`inductive_noise20` discovery, `activity_gradual`
+  degradation) hit this via `DerivationPipeline.compute` →
+  `ExecutionManager.coninciding_agns` — reproduced directly with a
+  standalone trace (`['Add penalty']`) against the same discovered tree,
+  no Ebi or full pipeline needed (`coninciding_agns` runs before Ebi is
+  ever invoked). Fixed by changing the check to `start <= i`. See
+  `tests/test_alignment_unfold_execution_bounds.py` and
+  `tests/rtfm_coninciding_agns_diagnostic.py` (manual, all 8 reported
+  variants).
+
 ### Added
 - Expanded test coverage for the previous `align_pn_all` fixes (loop cycle
   guard, `TieExplosionError`, `__search` perf), targeting paths those
