@@ -166,7 +166,14 @@ class TestComputeEmptyInputsDoNotDivideByZero(unittest.TestCase):
         derivation.pl = {}
 
         with tempfile.TemporaryDirectory() as tmp:
-            derivation.compute(tmp, sagns_precomputed={})
+            slpn_path = os.path.join(tmp, 'smodel.slpn')
+            derivation.compute(tmp, sagns_precomputed={}, slpn_path=slpn_path)
+            # compute()'s slpn_path defaults to the bare relative name
+            # 'smodel.slpn' -- omitting this kwarg writes it into
+            # whatever the real process cwd happens to be (the repo root,
+            # when run via unittest discover), not this temp dir
+            self.assertTrue(os.path.isfile(slpn_path))
+        self.assertFalse(os.path.isfile('smodel.slpn'), "must not leak into the real cwd")
 
         self.assertEqual(set(derivation.skip_probs.keys()), _all_nodes(tree))
         self.assertTrue(all(p == 0.0 for p in derivation.skip_probs.values()))
@@ -194,9 +201,10 @@ class TestComputeEmptyInputsDoNotDivideByZero(unittest.TestCase):
         derivation.pl = {}
 
         with tempfile.TemporaryDirectory() as tmp:
-            derivation.compute(tmp, sagns_precomputed={})
+            derivation.compute(tmp, sagns_precomputed={}, slpn_path=os.path.join(tmp, 'smodel.slpn'))
             with contextlib.redirect_stdout(io.StringIO()):
                 derivation.stats()
+        self.assertFalse(os.path.isfile('smodel.slpn'), "must not leak into the real cwd")
 
 
 if __name__ == '__main__':

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `skipalignments.util.release_check`, a maintainer-only pre-release
+  script (`python -m skipalignments.util.release_check`): regenerates
+  `requirements.txt` from `pip freeze` (stripping the package's own
+  self-reference — a `pip freeze` artifact of running in a venv with this
+  package installed editable, not a real dependency), checks
+  `pyproject.toml`'s version against `CHANGELOG.md`'s top entry, does a
+  clean rebuild + `twine check` + full test run, and flags untracked
+  files. Deliberately never performs the release itself (no
+  `twine upload`, no `git commit`/`tag`/`push`) — prints those commands
+  instead, only once every check passes. Safe to rerun any number of
+  times: no git or PyPI side effects, only local/gitignored build output.
+
+### Fixed
+- `tests/test_derivation_toothpaste.py`'s 
+`TestComputeEmptyInputsDoNotDivideByZero` tests leaked a file called 
+'smodel.slpn' into the current working directory.
+
+
 ## [0.2.2] - 2026-09-10
 
 ### Fixed
