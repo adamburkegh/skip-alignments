@@ -13,7 +13,11 @@ unmatched label was seen *first*, silently corrupting it.
 Run with:
     python -m unittest tests.test_probabilities_build_petri_net -v
 """
+import os
+import tempfile
 import unittest
+
+import pandas as pd
 
 from skipalignments.probabilities import EbiOccurance
 from skipalignments.processtree import Activity, Loop, Tau
@@ -67,6 +71,46 @@ class TestUnmatchedTransitionLabelsStayDistinct(unittest.TestCase):
 
         none_labelled = [t for t in net.transitions if t.label is None]
         self.assertGreater(len(none_labelled), 0, "fixture must actually produce a pm4py invisible transition")
+
+
+class TestWriteTreeToPetriAndWriteLogAcceptExplicitPaths(unittest.TestCase):
+    """
+    write_tree_to_petri/write_log used to hardcode 'model.pnml'/'log.xes'
+    as literal relative paths (see TODO.md), dumping them into whatever
+    directory happened to be the process's cwd -- unlike ebi_slpn/
+    validate_slpn/update_slpn_weights/ebi_trace_prob, which already accept
+    a model/path argument. Fixed by giving both the same kind of optional
+    parameter, defaulting to the original literals so existing callers
+    (derivation.py's two call sites) are unaffected.
+    """
+
+    def test_write_tree_to_petri_writes_to_the_given_model_path(self):
+        tree = _tree_with_free_loop_cycle()
+        with tempfile.TemporaryDirectory() as tmp:
+            model_path = os.path.join(tmp, 'a_specific_model.pnml')
+            EbiOccurance().write_tree_to_petri(tree, model=model_path)
+            self.assertTrue(os.path.isfile(model_path))
+
+    def test_write_log_writes_to_the_given_log_path(self):
+        log = pd.DataFrame({
+            'case:concept:name': ['1'],
+            'concept:name': ['act'],
+            'time:timestamp': [pd.Timestamp(year=2000, month=1, day=1)],
+        })
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = os.path.join(tmp, 'a_specific_log.xes')
+            EbiOccurance().write_log(log, {}, log_path=log_path)
+            self.assertTrue(os.path.isfile(log_path))
+
+    def test_defaults_are_unchanged_for_existing_callers(self):
+        # derivation.py's call sites don't pass model/log_path at all --
+        # confirms the defaults still match ebi_slpn's own defaults
+        # ('model.pnml'/'log.xes'), so this is purely additive
+        import inspect
+        write_tree_default = inspect.signature(EbiOccurance.write_tree_to_petri).parameters['model'].default
+        write_log_default = inspect.signature(EbiOccurance.write_log).parameters['log_path'].default
+        self.assertEqual(write_tree_default, 'model.pnml')
+        self.assertEqual(write_log_default, 'log.xes')
 
 
 if __name__ == '__main__':

@@ -84,18 +84,18 @@ class EbiOccurance(object):
                 activity_to_id[activity] = t.label
         return net, im, fm, activity_to_id, tau_ids, id_loop_list
 
-    def write_tree_to_petri(self, tree:ProcessTree) -> Dict[str, str]:
+    def write_tree_to_petri(self, tree:ProcessTree, model:str='model.pnml') -> Dict[str, str]:
         # returns a dict activity -> selected activity_id
         net, im, fm, activity_to_id, tau_ids, id_loop_list = self.build_petri_net(tree)
-        pm4py.write_pnml(net, im, fm, 'model.pnml')  # hardcoded relative path, see TODO.md
+        pm4py.write_pnml(net, im, fm, model)
         return activity_to_id
 
-    def write_log(self, log:pd.DataFrame, rename_dict:Dict[str, str]) -> pd.DataFrame:
+    def write_log(self, log:pd.DataFrame, rename_dict:Dict[str, str], log_path:str='log.xes') -> pd.DataFrame:
         # log is a pm4py event log
         # rename_dict is the output of write_tree_to_petri used to rename the acitvities in the log with a uniform id
         log = log.copy()
         log['concept:name'] = log['concept:name'].apply(lambda x: rename_dict[x] if x in rename_dict else x)
-        pm4py.write_xes(log, 'log.xes')  # hardcoded relative path, see TODO.md
+        pm4py.write_xes(log, log_path)
         return log
     
     def ebi_slpn(self, model='model.pnml', log='log.xes', out='smodel.slpn'):
