@@ -47,10 +47,17 @@ class DerivationPipeline(object):
         """
         self.tree = tree
         self.aligned_log = aligned_log
+        # computed once and reused for self.pl below (when pl isn't given)
+        # -- get_variant_dict wraps a full pass over aligned_log, so this
+        # used to run twice (once here, once again inside
+        # variant_prob_dist's own call to get_variant_dict) for no reason.
+        # See CHANGELOG.md and tests/test_derivation_construction_redundancy.py.
+        self.variants = self.get_variant_dict(self.aligned_log)
         if pl is not None:
             self.pl = pl
         else:
-            self.pl = self.variant_prob_dist(self.aligned_log)
+            total = sum(self.variants.values())
+            self.pl = {k: v / total for k, v in self.variants.items()} if total else {}
         self.pn_ppt_weights = None
         if pn_method == DiscoverySource.TOOTHPASTE:
             assert pn_ppt_weights is not None
@@ -66,8 +73,6 @@ class DerivationPipeline(object):
             self.pn_log = None
             self.pn_method = None
         self.sagn_timeout = sagn_timeout
-
-        self.variants = self.get_variant_dict(self.aligned_log)
     
     def write(self, obj:Any, path:str, name:str):
         file = open(path + "/" + name,"wb")

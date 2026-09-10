@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `DerivationPipeline.__init__` computed the log's variant dict
+  (`get_variant_dict`, wrapping a full pass over the log via
+  `pm4py.statistics.variants.log.get.get_variants_from_log_trace_idx`)
+  **twice** whenever `pl` wasn't passed explicitly (the common case):
+  once directly (to set `self.variants`), and again inside
+  `variant_prob_dist`'s own call to `get_variant_dict` on the same log,
+  to derive `self.pl`. Same log, same method, no side effects in
+  between — the second pass was pure waste. Found via a process-voids
+  performance report: constructing a `DerivationPipeline` over a
+  103,987-case log took ~24.75s, entirely before `.compute()` was even
+  called. Fixed by computing `self.variants` once and deriving `self.pl`
+  directly from it. Doesn't necessarily account for the full ~24.75s on
+  its own (variant extraction may simply be expensive at that log size),
+  but is a confirmed, real 2x on whatever that cost is. See
+  `tests/test_derivation_construction_redundancy.py`.
+
 ### Added
 - `skipalignments.__version__`. Sourced from
   `importlib.metadata.version("skipalignments")` rather than a
