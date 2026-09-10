@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `skipalignments.__version__`. Sourced from
+  `importlib.metadata.version("skipalignments")` rather than a
+  hand-maintained string literal, so it can't drift from
+  `pyproject.toml`'s own version the way a literal eventually would when
+  someone bumps the release and forgets the module; falls back to
+  `"unknown"` if the package isn't installed. Courtesy request from
+  process-voids — `import skipalignments; skipalignments.__version__`
+  raised `AttributeError`; not load-bearing for them (their own run-log
+  version banner already goes via `importlib.metadata` directly), just
+  the conventional attribute other consumers reach for.
 - `skipalignments.util.release_check`, a maintainer-only pre-release
   script (`python -m skipalignments.util.release_check`): regenerates
   `requirements.txt` from `pip freeze` (stripping the package's own

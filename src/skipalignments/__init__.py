@@ -8,8 +8,18 @@ Usage:
     from skipalignments import *
 """
 import random
+from importlib.metadata import PackageNotFoundError, version
+
 import pm4py
 import pandas as pd
+
+try:
+    __version__ = version("skipalignments")
+except PackageNotFoundError:
+    # not installed (e.g. running straight from a source checkout with no
+    # pip install -e . done) -- rather than raising, matches the common
+    # convention of falling back to a sentinel
+    __version__ = "unknown"
 
 from skipalignments import probabilities
 from skipalignments.processtree import *
