@@ -5,10 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
-## [Unreleased]
+## [0.2.2] - 2026-09-10
 
 ### Fixed
+- `EbiOccurance.write_tree_to_petri`/`write_log` hardcoded `model.pnml`/
+  `log.xes` as literal relative paths, dumping them into whatever
+  directory happened to be the process's cwd — unlike `ebi_slpn`/
+  `validate_slpn`/`update_slpn_weights`/`ebi_trace_prob`, which already
+  accept a `model`/`path` argument (see TODO.md). Fixed by giving both an
+  optional `model`/`log_path` parameter, defaulting to the original
+  literals so `derivation.py`'s two call sites (which don't pass either)
+  are unaffected.
 - `State.unfold()` (`alignment.py`) left a stale, too-narrow `.stop` bound
   on any recorded `Execution` whose span started at *exactly* the
   position of the `Skip`/`TauPath` move being unfolded — the boundary
