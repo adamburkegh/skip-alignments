@@ -82,61 +82,43 @@ class Skipper(object):
     
     def node_reached(self, node:ProcessTree, state:State) -> bool:
         """
-        Whether `node` was reached at all by `state` -- either directly
-        (a synchronous move or its own Skip/TauPath), or because it's
-        contained within a coarser Skip/TauPath placed on one of its
-        ancestors, when the whole ancestor subtree went unwitnessed as one
-        block. count_skip_executions/count_non_skip_executions alone only
-        catch the former (they use exact-identity matching, which is also
-        relied on by Sequence/Xor/And/Loop's own child-count bookkeeping,
-        so they can't be made containment-aware themselves without
-        double-counting there).
+        Whether `node` has its own execution in `state`: an exact-identity
+        skip or non-skip move matching `node` (count_skip_executions/
+        count_non_skip_executions).
 
-        Containment alone isn't enough, though: attributing a lump skip to
-        one specific descendant is only meaningful if something else in
-        the same alignment actually synchronized -- otherwise the skip is
-        maximally coarse precisely because *nothing* in the trace informs
-        which descendant it should be pinned to (e.g. a trace with no
-        relation to the model at all skips the whole tree at the root, and
-        that doesn't mean every leaf in the tree individually "executed as
-        a skip"). So containment only counts as reached when paired with
-        at least one genuine synchronous move elsewhere in the alignment.
+        A node masked inside a coarser Skip/TauPath placed on one of its
+        ancestors -- the whole ancestor subtree went unwitnessed as one
+        block -- has NO execution at all here, per "Skip Probabilities for
+        Subprocesses" (ICPM 2025)'s own Definition of Execution and its
+        worked example: children of a skipped node have no execution in
+        that alignment even when other activities genuinely synchronize
+        elsewhere in the very same alignment ("No execution of the
+        children N10 and N11 of N5 exists in sagn_21: Since N5 is
+        skipped, the nodes N10 and N11 are not traversed in sagn_21",
+        despite sagn_21 having other genuine synchronous moves). Containment
+        inside an ancestor's lump is never sufficient on its own, regardless
+        of what else happens in the alignment -- an earlier version of this
+        method treated "containment + at least one other genuine sync
+        elsewhere" as reached, which inflated masked descendants' skip
+        probabilities toward their ancestor's rate; see CHANGELOG.md.
         """
         skip_cnt = self.count_skip_executions(node, state, 1)
         nskip_cnt = self.count_non_skip_executions(node, state, 1)
-        if skip_cnt+nskip_cnt > 0:
-            return True
-        model_trace = [m for _, m in state.path if m != '>>']
-        # id-based, not m.node.contains_tree(node): states computed via the
-        # ProcessPoolExecutor in alignall.align_sk_all carry deserialized
-        # copies of the tree in their path, not the same objects as `node`
-        # (which comes from the caller's own tree) -- same .id, different
-        # identity, and ProcessTree has no __eq__ override, so identity-based
-        # containment silently fails across that boundary. Comparing by id
-        # is what the rest of this codebase already does to bridge it (see
-        # get_tree_node_by_id/fix_tree_references above).
-        has_containing_skip = any(
-            (isinstance(m, Skip) or isinstance(m, TauPath)) and self._contains_id(m.node, node.id)
-            for m in model_trace
-        )
-        if not has_containing_skip:
-            return False
-        return any(isinstance(m, LeafNode) for m in model_trace)
-
-    def _contains_id(self, container:ProcessTree, target_id:str) -> bool:
-        if container.id == target_id:
-            return True
-        return any(self._contains_id(c, target_id) for c in container.children)
+        return skip_cnt+nskip_cnt > 0
 
     def _conditional_skip_prob(self, node:ProcessTree, state:State):
         skip_cnt = self.count_skip_executions(node, state, 1)
         nskip_cnt = self.count_non_skip_executions(node, state, 1)
         if skip_cnt+nskip_cnt == 0:
-            # ambiguous: either this node's branch genuinely wasn't part of
-            # this execution (e.g. the untaken side of an Xor), or it's
-            # masked inside a coarser Skip/TauPath on an ancestor. Only the
-            # latter should count as skipped.
-            return 1 if self.node_reached(node, state) else 0
+            # no execution of this node in this state at all -- either its
+            # branch genuinely wasn't part of this execution (e.g. the
+            # untaken side of an Xor) or it's masked inside a coarser
+            # ancestor's Skip/TauPath (see node_reached). Either way,
+            # there's no skip/non-skip evidence to report; callers gate on
+            # node_reached to exclude states like this from the
+            # probability calculation entirely, rather than treating this
+            # 0 as "definitely not skipped".
+            return 0
         return skip_cnt/(skip_cnt+nskip_cnt)
     
     def _traverse_tree(self, tree:ProcessTree):

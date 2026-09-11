@@ -8,6 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- `skip_probs[node]` was inflated toward its ancestor's skip rate for any
+  node masked inside a coarser `Skip`/`TauPath` lump, whenever *other*
+  activities genuinely synchronized elsewhere in the same alignment.
+  `Skipper.node_reached` (introduced in `b840ce9`, shipped since the
+  `0.2.0` first public release) counted such a node as "reached" (and
+  therefore fully skipped) based on containment plus at least one other
+  genuine sync nearby — a condition not supported by "Skip Probabilities
+  for Subprocesses" (ICPM 2025), whose own worked example is explicit
+  that a masked descendant has **no execution at all**, even when other
+  activities synchronize in that same alignment ("No execution of the
+  children $N_{10}$ and $N_{11}$ of $N_5$ exists in $\sagn_{21}$: Since
+  $N_5$ is skipped, the nodes $N_{10}$ and $N_{11}$ are not traversed",
+  despite $\sagn_{21}$ having other genuine synchronous moves $a$, $f$,
+  $g$). Confirmed concretely: `c`, a leaf that's always genuinely executed
+  or masked (never itself skipped), read `skip_prob = 0.222` — exactly
+  its masking ancestor's own rate — instead of the correct `0`; a sibling
+  that never executes anywhere in the log at all read `1.0`, the maximum
+  possible wrong value.
+
+  Fixed by removing the containment/other-sync heuristic: `node_reached`
+  is now exact-identity match only (a node has an execution iff it has
+  its own skip or non-skip move). This didn't require touching the three
+  call sites that gate on it (`derivation.py`'s `prob_per_variant_and_node`/
+  `prob_per_node`, `probabilities.py`'s `_skip_agn_probs`) — they already
+  correctly exclude non-reached states/variants from both the numerator
+  and denominator of their probability aggregates; the bug was entirely
+  in what `node_reached` considered "reached", not in how its result was
+  used. The paper-verified worked example ($P_{N_5}(\sk) = 0.22$,
+  `test_skip_prob_matches_paper_worked_example`) is unaffected, since
+  that node's own value never depended on containment.
+
+  This bug's scope is broader than the one it replaced: the original
+  (masked descendants always reading as 0) was a one-directional
+  under-count; this one fabricated false-positive skip evidence across
+  nearly the same trigger set, and hit directly the scenario a gradual,
+  partial-subprocess-missingness degradation study is built around,
+  not an edge case of one.
 - `__search` used `np.matrix`/`np.asmatrix` for `a_matrix`/`h_cvx`,
   spamming numpy's deprecation warning on every call. Switched to plain
   `ndarray`, same shape and output.

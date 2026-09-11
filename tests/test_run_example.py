@@ -175,6 +175,34 @@ class PipelineTests(unittest.TestCase):
         self.assertIsInstance(choice, Xor)
         self.assertAlmostEqual(self.derivation.skip_probs[choice], 0.22, places=2)
 
+    def test_choice_children_have_no_execution_when_choice_itself_is_skipped(self):
+        # Same paper, same running example, one step further: N_5 (the
+        # 'choice' node above) has children N_10='c', N_11='d'. The paper
+        # is explicit and direct about these: "No execution of the
+        # children N10 and N11 of N5 exists in sagn_21: Since N5 is
+        # skipped, the nodes N10 and N11 are not traversed in sagn_21" --
+        # even though sagn_21 = <a/a, >>/s(N5), >>/s(N6), f/f, g/g> has
+        # other genuine synchronous moves (a, f, g) elsewhere in the same
+        # alignment. A masked descendant has no execution at all in that
+        # state, full stop -- it must be excluded from the skip-prob
+        # calculation, not counted as skipped just because something else
+        # nearby happened to synchronize.
+        #
+        # 'c' is genuinely (non-skip) executed whenever sigma_3 chooses
+        # it, and is masked (no execution) whenever sigma_2 skips the
+        # whole choice -- its correct skip_prob is 0 (every genuine
+        # execution of 'c' is a real execution, never itself skipped).
+        # 'd' never genuinely executes anywhere in this log at all (never
+        # chosen over 'c', and masked whenever the whole choice is
+        # skipped) -- its correct skip_prob is also 0 (no data, the same
+        # "excluded, defaults to 0" fallback prob_per_node already uses
+        # when literally no variant reaches a node).
+        choice = self.derivation.tree.children[0].children[1]
+        c, d = choice.children
+        self.assertEqual({c.name, d.name}, {"c", "d"})
+        self.assertAlmostEqual(self.derivation.skip_probs[c], 0.0, places=6)
+        self.assertAlmostEqual(self.derivation.skip_probs[d], 0.0, places=6)
+
     def test_cond_prob_matches_paper_sigma2_skip_alignment_split(self):
         # Same paper, same example: sigma_2 has two optimal skip alignments
         # in normal form, sagn_21 (synchronizes 'f') and sagn_22 (performs
