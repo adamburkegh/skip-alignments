@@ -567,9 +567,18 @@ def __search(sync_net, ini, fin, cost_function, skip, id_loop_list, cost_bound, 
 
     closed = set()
 
-    a_matrix = np.asmatrix(incidence_matrix.a_matrix).astype(np.float64)
+    # plain ndarray, not np.matrix/np.asmatrix: the matrix subclass is
+    # deprecated (PendingDeprecationWarning on every construction) and
+    # unneeded here -- incidence_matrix.a_matrix is already 2-D (asarray
+    # just drops the subclass, same shape), and .reshape(-1, 1) replicates
+    # what np.matrix(1-D array).transpose() did (matrix always treats a
+    # flat array as a row vector, so transposing it produces a column
+    # vector; .T on an already-1-D ndarray would be a no-op, which is why
+    # the reshape -- not just dropping .transpose() -- is the fix here).
+    # See CHANGELOG.md and tests/test_alignall_matrix_deprecation.py.
+    a_matrix = np.asarray(incidence_matrix.a_matrix, dtype=np.float64)
     g_matrix = -np.eye(len(sync_net.transitions))
-    h_cvx = np.matrix(np.zeros(len(sync_net.transitions))).transpose()
+    h_cvx = np.zeros(len(sync_net.transitions)).reshape(-1, 1)
     cost_vec = [x * 1.0 for x in cost_vec]
 
     use_cvxopt = False

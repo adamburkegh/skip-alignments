@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- `__search` used `np.matrix`/`np.asmatrix` for `a_matrix`/`h_cvx`,
+  spamming numpy's deprecation warning on every call. Switched to plain
+  `ndarray`, same shape and output.
 - `DerivationPipeline.__init__` computed the log's variant dict
   (`get_variant_dict`, wrapping a full pass over the log via
   `pm4py.statistics.variants.log.get.get_variants_from_log_trace_idx`)
