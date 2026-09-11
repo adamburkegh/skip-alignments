@@ -1,11 +1,14 @@
 from skipalignments.processtree import *
-from typing import List, Optional, Any, Set
+from typing import Dict, List, Optional, Any, Set, Tuple
 from enum import Enum
 import queue
 from functools import total_ordering
 from collections import defaultdict
+import logging
 import time
 import warnings
+
+logger = logging.getLogger(__name__)
 
 level_incentive = 0
 
@@ -20,6 +23,18 @@ class NodeState(Enum):
         if not isinstance(other, NodeState):
             raise ValueError("Expected Enum value.")
         return self.value < other.value
+
+def _closed_key(state: "State") -> Tuple[tuple, tuple]:
+    """
+    Hashable key equivalent to State.matches_without_cost: two states are
+    "the same" for closed-set purposes iff their node-state vectors and
+    remaining traces are equal (cost, path, and object identity don't
+    matter). Lets align_normal_form's closedset be a dict (O(1) average
+    lookup) instead of a list scanned with matches_without_cost per
+    candidate (O(n) per lookup, O(n^2) over a run) -- see CHANGELOG.md.
+    """
+    return (tuple(state.state), tuple(state.trace))
+
 
 @total_ordering
 class State(object):
@@ -999,7 +1014,7 @@ class Aligner(object):
                 state for a optimal skip alignment in normal form
         """
         openlist:queue.PriorityQueue[State] = queue.PriorityQueue()
-        closedset = []
+        closedset:Dict[Tuple[tuple, tuple], State] = {}
         openlist.put(State.initial_state(self.tree, trace, self.mapper))
 
         tau_cost = self.max_tau_cost(self.tree)
@@ -1013,6 +1028,15 @@ class Aligner(object):
         time_start = time.process_time()
         time_start_ns = time.process_time_ns()
 
+        # Cheap counters, always tracked (not gated on debug logging) --
+        # same idiom as alignall.py's __search (visited/queued/traversed):
+        # negligible cost to maintain, and the only way to see the search's
+        # actual shape (states expanded vs. reopened) without re-running
+        # under cProfile. Formatted/logged only if DEBUG is enabled.
+        states_popped = 0
+        states_expanded = 0
+        states_reopened = 0
+
         while not openlist.empty():
             if timeout is not None and time.process_time() - time_start > timeout:
                 return optimal_states, -1
@@ -1021,6 +1045,7 @@ class Aligner(object):
                 print("Open:  ", openlist.queue)
                 print("Closed:", closedset)
             state = openlist.get()
+            states_popped += 1
             if debug:
                 print("Inspecting state", state)
             if state.is_final():
@@ -1035,18 +1060,25 @@ class Aligner(object):
                         optimal_states.append(state)
                     else:
                         # not optimal anymore
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug(
+                                "align_normal_form: states_popped=%d states_expanded=%d states_reopened=%d "
+                                "closedset_size=%d optimal_states=%d elapsed_ns=%d",
+                                states_popped, states_expanded, states_reopened,
+                                len(closedset), len(optimal_states), time.process_time_ns() - time_start_ns)
                         return optimal_states, time.process_time_ns()-time_start_ns
                 else:
                     return state
             else:
-                other = self.find_in_set(state, closedset)
+                key = _closed_key(state)
+                other = closedset.get(key)
                 if other is None or other.costs() >= state.costs(): # NOTE: >= is needed only if we want all optimal alignments ???
                     if debug:
                         print("Expanding state since other is", other)
                     if other is not None:
-                        # remove to only have one in
-                        closedset.remove(other)
-                    closedset.append(state)
+                        states_reopened += 1
+                    closedset[key] = state
+                    states_expanded += 1
                     # do expansion
                     if len(optimal_states) > 0 and state.acc_costs > optimal_states[0].acc_costs:
                         # can never get optimal anymore
@@ -1061,14 +1093,14 @@ class Aligner(object):
                 else:
                     if debug:
                         print("Already inspected (better) state, skip.")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "align_normal_form: states_popped=%d states_expanded=%d states_reopened=%d "
+                "closedset_size=%d optimal_states=%d elapsed_ns=%d",
+                states_popped, states_expanded, states_reopened,
+                len(closedset), len(optimal_states), time.process_time_ns() - time_start_ns)
         return optimal_states, time.process_time_ns() - time_start_ns
-    
-    def find_in_set(self, state:State, set:Set) -> State|None:
-        for other in set:
-            if state.matches_without_cost(other):
-                return other
-        return None
-    
+
 
 
 class Mapper(object):
@@ -1090,8 +1122,7 @@ class Mapper(object):
         return [tree] + children
     
     def node_to_index(self, tree:ProcessTree):
-        return self.order.index(tree)
-        #return self.reverse_lookup[tree]
+        return self.reverse_lookup[tree]
     
     def index_to_node(self, index:int) -> ProcessTree:
         # assert 0 <= index and index < len(self.order)

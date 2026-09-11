@@ -63,6 +63,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its own (variant extraction may simply be expensive at that log size),
   but is a confirmed, real 2x on whatever that cost is. See
   `tests/test_derivation_construction_redundancy.py`.
+- `Aligner.align_normal_form`'s search (`alignment.py`) had two real
+  inefficiencies found while investigating a process-voids report that
+  skip-alignments' custom search was no longer clearly faster than
+  classical alignment on real data. `Mapper.node_to_index` did an O(n)
+  `list.index()` scan on every call — despite an O(1) `reverse_lookup`
+  dict already being built right next to it and left unused — and it's
+  called densely (multiple times per node per search step). The
+  closed-set check was a plain list scanned linearly
+  (`State.matches_without_cost` against every entry) on every popped
+  state, O(n) per lookup and O(n²) over a run. Fixed by using
+  `reverse_lookup` and by replacing the list with a dict keyed on a new
+  `_closed_key(state)` helper (`(tuple(state.state), tuple(state.trace))`,
+  an exact hashable equivalent of `matches_without_cost`). Full test suite
+  wall time dropped from ~100–106s to ~38s; a synthetic 61-node/32-event
+  profiling scenario went from 0.119s to 0.087s, with
+  `matches_without_cost`/`find_in_set`'s combined 0.032s essentially
+  disappearing. `align_normal_form` also gained always-on, cheap search
+  counters (states popped/expanded/reopened, closed-set size), logged via
+  `logger.debug` only when enabled — same idiom as `execution.py`'s
+  shuffle-stats logging. See `tests/test_alignment_mapper.py` and
+  `tests/test_alignment_closed_set.py`. A real A* heuristic (currently
+  `Aligner.heuristic()` always returns 0, making this uniform-cost search
+  rather than A*) is a separate, larger follow-on, not addressed here.
 
 ### Added
 - `skipalignments.__version__`. Sourced from
