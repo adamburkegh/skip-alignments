@@ -85,7 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shuffle-stats logging. See `tests/test_alignment_mapper.py` and
   `tests/test_alignment_closed_set.py`. A real A* heuristic (currently
   `Aligner.heuristic()` always returns 0, making this uniform-cost search
-  rather than A*) is a separate, larger follow-on, not addressed here.
+  rather than A\*) is a separate, larger follow-on, not addressed here.
+- `tests/test_derivation_toothpaste.py`'s
+`TestComputeEmptyInputsDoNotDivideByZero` tests leaked a file called
+'smodel.slpn' into the current working directory.
 
 ### Added
 - `skipalignments.__version__`. Sourced from
@@ -93,27 +96,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hand-maintained string literal, so it can't drift from
   `pyproject.toml`'s own version the way a literal eventually would when
   someone bumps the release and forgets the module; falls back to
-  `"unknown"` if the package isn't installed. Courtesy request from
-  process-voids — `import skipalignments; skipalignments.__version__`
-  raised `AttributeError`; not load-bearing for them (their own run-log
-  version banner already goes via `importlib.metadata` directly), just
-  the conventional attribute other consumers reach for.
+  `"unknown"` if the package isn't installed. 
 - `skipalignments.util.release_check`, a maintainer-only pre-release
-  script (`python -m skipalignments.util.release_check`): regenerates
-  `requirements.txt` from `pip freeze` (stripping the package's own
-  self-reference — a `pip freeze` artifact of running in a venv with this
-  package installed editable, not a real dependency), checks
-  `pyproject.toml`'s version against `CHANGELOG.md`'s top entry, does a
-  clean rebuild + `twine check` + full test run, and flags untracked
-  files. Deliberately never performs the release itself (no
-  `twine upload`, no `git commit`/`tag`/`push`) — prints those commands
-  instead, only once every check passes. Safe to rerun any number of
-  times: no git or PyPI side effects, only local/gitignored build output.
+  script.
 
-### Fixed
-- `tests/test_derivation_toothpaste.py`'s 
-`TestComputeEmptyInputsDoNotDivideByZero` tests leaked a file called 
-'smodel.slpn' into the current working directory.
 
 
 ## [0.2.2] - 2026-09-10
