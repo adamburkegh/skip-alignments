@@ -222,13 +222,21 @@ class EbiOccurance(object):
         with ProcessPoolExecutor(max_workers=14) as executor:
             futures = []
             checked_ids = []
+            # checked_ids stays a list (its order pairs positionally with
+            # futures for the `checked_ids[index]` lookup below); this set
+            # is only for the membership test itself, which used to be an
+            # O(n) scan over checked_ids repeated for every (var, agn) pair
+            # -- O(n^2) overall for n unique model paths. Same fix as
+            # Mapper.node_to_index/Aligner's closed-set (see CHANGELOG.md).
+            checked_ids_set = set()
             for var, ass in tqdm(agns.items(), disable=progress_bars_disabled()):
                 for agn in ass:
                     model_path = tuple([m for m in list(zip(*agn))[1] if m != '>>'])
                     model_path_ids = tuple([n.id for n in model_path])
-                    if not model_path_ids in checked_ids:
+                    if model_path_ids not in checked_ids_set:
                         futures.append(executor.submit(self.ebi_trace_prob, list(model_path_ids), model))
                         checked_ids.append(model_path_ids)
+                        checked_ids_set.add(model_path_ids)
             print("Futures created")
             progress = tqdm(total=len(futures), disable=progress_bars_disabled())
             for future in as_completed(futures):

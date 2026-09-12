@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `EbiOccurance.trace_probs`'s dedup check (gating `ebi_trace_prob` calls
+  by unique optimal-alignment path) scanned a plain list, O(n) per check.
+  Added a companion `set` for the membership test. Negligible on the log
+  sizes measured so far, but avoids real quadratic cost as unique-path
+  counts grow, and compounds across iterated lab-harness runs regardless.
+  See `tests/test_probabilities_trace_probs_dedup.py`.
+
 ## [0.3.0] - 2026-09-12
 
 ### Fixed
