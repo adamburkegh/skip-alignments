@@ -79,11 +79,23 @@ class DerivationPipeline(object):
         pickle.dump(obj, file)
         file.close()
     
-    def compute(self, path:str, sagns_precomputed:Dict[str, List[State]]=None, slpn_path='smodel.slpn'):
+    def compute(self, path:str, sagns_precomputed:Dict[str, List[State]]=None, slpn_path='smodel.slpn', model_path:str=None, log_path:str=None):
         # outputs
         if path.endswith('/'):
             path = path[:-1]
         Path(path).mkdir(parents=True, exist_ok=True)
+
+        # model.pnml/log.xes default under the pipeline's own caller-nominated
+        # output directory rather than a fixed name in whatever cwd the
+        # caller's process happens to run from -- a fixed cwd-relative name
+        # collides across concurrent runs (e.g. a multi-worker sweep), the
+        # same class of bug as the earlier smodel.slpn test leak. Explicit
+        # overrides are still honoured for callers who want somewhere else.
+        # See CHANGELOG.md.
+        if model_path is None:
+            model_path = path + "/model.pnml"
+        if log_path is None:
+            log_path = path + "/log.xes"
 
         self.write(self.tree, path, "tree")
         
@@ -130,10 +142,10 @@ class DerivationPipeline(object):
             time_stop_ns_model_paths = time.process_time_ns()
             self.trace_prob_time = (prob_time/len(trace_probs) if trace_probs else 0, prob_time) # avg, total
         elif self.pn_log is not None:
-            activity_to_id = ebi.write_tree_to_petri(self.tree)
+            activity_to_id = ebi.write_tree_to_petri(self.tree, model=model_path)
             print(activity_to_id)
-            id_filtered_log_rf = ebi.write_log(self.pn_log, activity_to_id)
-            ebi.ebi_slpn(out=slpn_path)
+            id_filtered_log_rf = ebi.write_log(self.pn_log, activity_to_id, log_path=log_path)
+            ebi.ebi_slpn(model=model_path, log=log_path, out=slpn_path)
             ebi.validate_slpn(self.tree, slpn_path)
             ebi.update_slpn_weights(self.tree, slpn_path)
             time_start_ns_model_paths = time.process_time_ns()
@@ -141,7 +153,7 @@ class DerivationPipeline(object):
             time_stop_ns_model_paths = time.process_time_ns()
             self.trace_prob_time = (prob_time/len(trace_probs) if trace_probs else 0, prob_time) # avg, total
         else:
-            activity_to_id = ebi.write_tree_to_petri(self.tree)
+            activity_to_id = ebi.write_tree_to_petri(self.tree, model=model_path)
             print(activity_to_id)
             trace_probs, trace_counts, prob_time = ebi.trace_probs(var_C, self.pn_measure)
             self.trace_prob_time = (-1, -1)

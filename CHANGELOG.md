@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sizes measured so far, but avoids real quadratic cost as unique-path
   counts grow, and compounds across iterated lab-harness runs regardless.
   See `tests/test_probabilities_trace_probs_dedup.py`.
+- `DerivationPipeline.compute()` wrote `model.pnml`/`log.xes` under fixed,
+  cwd-relative names rather than its own caller-nominated output
+  directory, colliding across concurrent runs (e.g. a multi-worker
+  sweep). Now default under `path`; added `model_path`/`log_path`
+  overrides for callers who want elsewhere. Found via a process-voids
+  report. See `tests/test_derivation_output_file_paths.py`.
 
 ## [0.3.0] - 2026-09-12
 
